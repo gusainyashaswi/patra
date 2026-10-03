@@ -1,16 +1,11 @@
 const nodemailer = require('nodemailer');
 const config = require('../config');
 
-// In-memory outbox / history log (can be extended to a database)
 const mailHistory = [];
 
 let cachedTransporter = null;
 
-/**
- * Initializes and returns a nodemailer transporter.
- * If SMTP credentials are provided in config, uses them;
- * otherwise automatically creates a test account via Ethereal Mail.
- */
+// Initializes or returns a cached Nodemailer transporter (SMTP or Ethereal fallback)
 async function getTransporter() {
   if (cachedTransporter) {
     return cachedTransporter;
@@ -28,7 +23,6 @@ async function getTransporter() {
     });
     console.log(`[MailService] Using configured SMTP host: ${config.smtp.host}`);
   } else {
-    // Generate an Ethereal test account for seamless local testing
     console.log('[MailService] No SMTP credentials provided. Creating ethereal test account...');
     const testAccount = await nodemailer.createTestAccount();
     cachedTransporter = nodemailer.createTransport({
@@ -46,18 +40,8 @@ async function getTransporter() {
   return cachedTransporter;
 }
 
-/**
- * Send an email message.
- * @param {Object} options
- * @param {string} [options.from]
- * @param {string|string[]} options.to
- * @param {string|string[]} [options.cc]
- * @param {string|string[]} [options.bcc]
- * @param {string} options.subject
- * @param {string} [options.text]
- * @param {string} [options.html]
- */
-async function sendMail({ from, to, cc, bcc, subject, text, html }) {
+// Dispatches an email message and appends it to the outbox log with user ownership
+async function sendMail({ from, to, cc, bcc, subject, text, html, userId = null }) {
   const transporter = await getTransporter();
 
   const mailOptions = {
@@ -75,6 +59,7 @@ async function sendMail({ from, to, cc, bcc, subject, text, html }) {
 
   const record = {
     id: info.messageId || `msg_${Date.now()}`,
+    userId: userId || null,
     timestamp: new Date().toISOString(),
     from: mailOptions.from,
     to: mailOptions.to,
@@ -86,7 +71,6 @@ async function sendMail({ from, to, cc, bcc, subject, text, html }) {
     response: info.response,
   };
 
-  // Keep latest 100 emails in memory history
   mailHistory.unshift(record);
   if (mailHistory.length > 100) {
     mailHistory.pop();
@@ -95,11 +79,12 @@ async function sendMail({ from, to, cc, bcc, subject, text, html }) {
   return record;
 }
 
-/**
- * Get mail delivery history.
- */
-function getHistory(limit = 50) {
-  return mailHistory.slice(0, limit);
+// Retrieves mail delivery history filtered by user ownership
+function getHistory(limit = 50, userId = null) {
+  if (userId) {
+    return mailHistory.filter((item) => item.userId === userId).slice(0, limit);
+  }
+  return mailHistory.filter((item) => !item.userId).slice(0, limit);
 }
 
 module.exports = {

@@ -1,15 +1,11 @@
 const mailService = require('../services/mailService');
 
-/**
- * Validates email format roughly
- */
+// Validates basic email string format
 function isValidEmail(email) {
   return typeof email === 'string' && email.trim().length > 3 && email.includes('@');
 }
 
-/**
- * Controller to send an email
- */
+// Validates payload and dispatches email via mail service
 async function sendMail(req, res, next) {
   try {
     const { from, to, cc, bcc, subject, text, html } = req.body;
@@ -21,7 +17,6 @@ async function sendMail(req, res, next) {
       });
     }
 
-    // Basic recipient format validation
     const recipients = Array.isArray(to) ? to : [to];
     for (const recipient of recipients) {
       if (!isValidEmail(recipient)) {
@@ -39,6 +34,8 @@ async function sendMail(req, res, next) {
       });
     }
 
+    const userId = req.user ? req.user.id : null;
+
     const result = await mailService.sendMail({
       from,
       to,
@@ -47,6 +44,7 @@ async function sendMail(req, res, next) {
       subject,
       text,
       html,
+      userId,
     });
 
     return res.status(200).json({
@@ -60,12 +58,11 @@ async function sendMail(req, res, next) {
   }
 }
 
-/**
- * Controller to fetch sent emails history
- */
+// Retrieves sent mail history scoped to the requesting user
 async function getMailHistory(req, res) {
   const limit = parseInt(req.query.limit, 10) || 50;
-  const history = mailService.getHistory(limit);
+  const userId = req.user ? req.user.id : null;
+  const history = mailService.getHistory(limit, userId);
 
   return res.status(200).json({
     success: true,
@@ -74,9 +71,7 @@ async function getMailHistory(req, res) {
   });
 }
 
-/**
- * Service health check controller
- */
+// Returns current service health status
 function healthCheck(req, res) {
   return res.status(200).json({
     success: true,

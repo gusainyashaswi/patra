@@ -1,9 +1,68 @@
-// Default configuration
 const STORAGE_KEY_API = 'patra_backend_url';
-let apiBaseUrl = localStorage.getItem(STORAGE_KEY_API) || 'http://localhost:5001';
-let currentFormat = 'html'; // 'html' | 'text'
+const STORAGE_KEY_TOKEN = 'patra_auth_token';
 
-// Email Templates
+let apiBaseUrl = localStorage.getItem(STORAGE_KEY_API) || 'http://localhost:5001';
+let currentFormat = 'html';
+let currentUser = null;
+
+// Centralized API client handling requests and automated Bearer token attachment
+const apiClient = {
+  getToken() {
+    return localStorage.getItem(STORAGE_KEY_TOKEN);
+  },
+  setToken(token) {
+    if (token) {
+      localStorage.setItem(STORAGE_KEY_TOKEN, token);
+    } else {
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
+    }
+  },
+  clearToken() {
+    localStorage.removeItem(STORAGE_KEY_TOKEN);
+  },
+  // Performs HTTP requests with JSON headers and Bearer token injection
+  async request(endpoint, options = {}) {
+    const url = `${apiBaseUrl}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    };
+
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const res = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      if (res.status === 401 && token && endpoint !== '/api/auth/login') {
+        console.warn('[apiClient] Session expired. Clearing token.');
+        this.clearToken();
+        updateAuthUI(null);
+      }
+
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok, status: res.status, data };
+    } catch (networkError) {
+      return { ok: false, status: 0, error: networkError.message };
+    }
+  },
+  get(endpoint, options = {}) {
+    return this.request(endpoint, { method: 'GET', ...options });
+  },
+  post(endpoint, body, options = {}) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+      ...options,
+    });
+  },
+};
+
 const TEMPLATES = {
   welcome: {
     subject: 'Welcome to Patra — You are all set!',
@@ -38,7 +97,6 @@ const TEMPLATES = {
   }
 };
 
-// DOM Elements
 const connectionBadge = document.getElementById('connection-indicator');
 const connectionLabel = document.getElementById('connection-label');
 const toggleConfigBtn = document.getElementById('toggle-config-btn');
@@ -46,6 +104,25 @@ const settingsPanel = document.getElementById('settings-panel');
 const closeSettingsBtn = document.getElementById('close-settings-btn');
 const apiUrlInput = document.getElementById('api-url-input');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
+
+const openAuthBtn = document.getElementById('open-auth-btn');
+const userBadge = document.getElementById('user-badge');
+const userAvatar = document.getElementById('user-avatar');
+const userName = document.getElementById('user-name');
+const userRoleTag = document.getElementById('user-role-tag');
+const logoutBtn = document.getElementById('logout-btn');
+
+const authModal = document.getElementById('auth-modal');
+const closeAuthBtn = document.getElementById('close-auth-btn');
+const tabAuthLogin = document.getElementById('tab-auth-login');
+const tabAuthRegister = document.getElementById('tab-auth-register');
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const loginEmail = document.getElementById('login-email');
+const loginPassword = document.getElementById('login-password');
+const registerName = document.getElementById('register-name');
+const registerEmail = document.getElementById('register-email');
+const registerPassword = document.getElementById('register-password');
 
 const mailForm = document.getElementById('mail-form');
 const fromInput = document.getElementById('from-input');
@@ -73,19 +150,18 @@ const historyContainer = document.getElementById('history-container');
 const refreshHistoryBtn = document.getElementById('refresh-history-btn');
 const toastContainer = document.getElementById('toast-container');
 
-// Initialize
-function init() {
+// Initializes application state, event listeners, backend health polling, and user session
+async function init() {
   apiUrlInput.value = apiBaseUrl;
   setupEventListeners();
   updateLivePreview();
-  checkBackendConnection();
-  // Poll backend health every 15s
+  await checkBackendConnection();
+  await loadCurrentUser();
   setInterval(checkBackendConnection, 15000);
 }
 
-// Event Listeners
+// Binds DOM event listeners for forms, buttons, and format toggles
 function setupEventListeners() {
-  // Settings toggle
   toggleConfigBtn.addEventListener('click', () => {
     settingsPanel.classList.toggle('hidden');
   });
@@ -103,43 +179,194 @@ function setupEventListeners() {
     }
   });
 
-  // CC/BCC accordion toggle
+  openAuthBtn.addEventListener('click', () => {
+    openModal('login');
+  });
+  closeAuthBtn.addEventListener('click', () => {
+    authModal.classList.add('hidden');
+  });
+  authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) {
+      authModal.classList.add('hidden');
+    }
+  });
+
+  tabAuthLogin.addEventListener('click', () => switchAuthTab('login'));
+  tabAuthRegister.addEventListener('click', () => switchAuthTab('register'));
+
+  loginForm.addEventListener('submit', handleLogin);
+  registerForm.addEventListener('submit', handleRegister);
+  logoutBtn.addEventListener('click', handleLogout);
+
   toggleCcBtn.addEventListener('click', () => {
     const isHidden = ccBccContainer.classList.toggle('hidden');
     toggleCcBtn.textContent = isHidden ? '+ CC / BCC' : '− Hide CC / BCC';
   });
 
-  // Format Switch
   tabHtml.addEventListener('click', () => setFormat('html'));
   tabText.addEventListener('click', () => setFormat('text'));
 
-  // Live Preview Listeners
   toInput.addEventListener('input', updateLivePreview);
   subjectInput.addEventListener('input', updateLivePreview);
   bodyInput.addEventListener('input', updateLivePreview);
 
-  // Template Buttons
-  document.querySelectorAll('.btn-chip').forEach(btn => {
+  document.querySelectorAll('.btn-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.getAttribute('data-template');
       applyTemplate(key);
     });
   });
 
-  // Reset form
   resetFormBtn.addEventListener('click', () => {
     mailForm.reset();
     updateLivePreview();
   });
 
-  // Form Submit
   mailForm.addEventListener('submit', handleSendMail);
-
-  // History Refresh
   refreshHistoryBtn.addEventListener('click', fetchHistory);
 }
 
-// Change body format (HTML vs Plain Text)
+// Opens the authentication modal with the specified tab active
+function openModal(mode = 'login') {
+  authModal.classList.remove('hidden');
+  switchAuthTab(mode);
+}
+
+// Switches active tab between login and registration forms
+function switchAuthTab(tab) {
+  if (tab === 'login') {
+    tabAuthLogin.classList.add('active');
+    tabAuthRegister.classList.remove('active');
+    loginForm.classList.remove('hidden');
+    registerForm.classList.add('hidden');
+    loginEmail.focus();
+  } else {
+    tabAuthRegister.classList.add('active');
+    tabAuthLogin.classList.remove('active');
+    registerForm.classList.remove('hidden');
+    loginForm.classList.add('hidden');
+    registerName.focus();
+  }
+}
+
+// Updates header UI elements to reflect authenticated or unauthenticated state
+function updateAuthUI(user) {
+  currentUser = user;
+  if (user) {
+    openAuthBtn.classList.add('hidden');
+    userBadge.classList.remove('hidden');
+    userAvatar.textContent = (user.name || user.email || 'U').charAt(0).toUpperCase();
+    userName.textContent = user.name || user.email;
+    userRoleTag.textContent = user.role || 'user';
+  } else {
+    openAuthBtn.classList.remove('hidden');
+    userBadge.classList.add('hidden');
+  }
+}
+
+// Loads the authenticated user profile using stored JWT token
+async function loadCurrentUser() {
+  const token = apiClient.getToken();
+  if (!token) {
+    updateAuthUI(null);
+    return;
+  }
+
+  const { ok, data } = await apiClient.get('/api/auth/me');
+  if (ok && data.success && data.user) {
+    updateAuthUI(data.user);
+    fetchHistory();
+  } else {
+    apiClient.clearToken();
+    updateAuthUI(null);
+  }
+}
+
+// Authenticates user credentials and stores JWT token on success
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value;
+
+  if (!email || !password) {
+    showToast('Please provide email and password', 'error');
+    return;
+  }
+
+  const submitBtn = document.getElementById('login-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Signing In...';
+
+  try {
+    const { ok, data } = await apiClient.post('/api/auth/login', { email, password });
+    if (!ok || !data.success) {
+      throw new Error(data.message || 'Login failed');
+    }
+
+    apiClient.setToken(data.token);
+    updateAuthUI(data.user);
+    authModal.classList.add('hidden');
+    loginForm.reset();
+    showToast(`Welcome back, ${data.user.name}!`, 'success');
+    fetchHistory();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign In';
+  }
+}
+
+// Registers a new user account and activates session on success
+async function handleRegister(e) {
+  e.preventDefault();
+  const name = registerName.value.trim();
+  const email = registerEmail.value.trim();
+  const password = registerPassword.value;
+
+  if (!name || !email || !password) {
+    showToast('Please fill in all registration fields', 'error');
+    return;
+  }
+  if (password.length < 8) {
+    showToast('Password must be at least 8 characters long', 'error');
+    return;
+  }
+
+  const submitBtn = document.getElementById('register-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creating Account...';
+
+  try {
+    const { ok, data } = await apiClient.post('/api/auth/register', { name, email, password });
+    if (!ok || !data.success) {
+      throw new Error(data.message || 'Registration failed');
+    }
+
+    apiClient.setToken(data.token);
+    updateAuthUI(data.user);
+    authModal.classList.add('hidden');
+    registerForm.reset();
+    showToast(`Account created! Welcome, ${data.user.name}!`, 'success');
+    fetchHistory();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create Account';
+  }
+}
+
+// Terminates active session, clears stored JWT, and resets user state
+async function handleLogout() {
+  await apiClient.post('/api/auth/logout');
+  apiClient.clearToken();
+  updateAuthUI(null);
+  showToast('You have been signed out', 'info');
+  fetchHistory();
+}
+
+// Toggles email message composition body format between HTML and Plain Text
 function setFormat(format) {
   currentFormat = format;
   if (format === 'html') {
@@ -156,7 +383,7 @@ function setFormat(format) {
   updateLivePreview();
 }
 
-// Apply selected template
+// Injects pre-defined email template into subject and body fields
 function applyTemplate(templateKey) {
   const template = TEMPLATES[templateKey];
   if (!template) return;
@@ -171,7 +398,7 @@ function applyTemplate(templateKey) {
   showToast(`Applied "${templateKey}" template`, 'info');
 }
 
-// Update Live Preview Box
+// Renders live preview of recipient, subject, and formatted email body
 function updateLivePreview() {
   const to = toInput.value.trim();
   const subject = subjectInput.value.trim();
@@ -186,31 +413,26 @@ function updateLivePreview() {
   }
 
   if (currentFormat === 'html') {
-    // Basic DOM element creation for preview display
     previewContent.innerHTML = body;
   } else {
     previewContent.textContent = body;
   }
 }
 
-// Check Backend Connection Status
+// Polls backend health endpoint and updates connection badge status
 async function checkBackendConnection() {
-  try {
-    const res = await fetch(`${apiBaseUrl}/api/health`, { method: 'GET' });
-    if (res.ok) {
-      connectionBadge.className = 'status-badge connected';
-      connectionLabel.textContent = 'Backend Online';
-      fetchHistory(); // fetch latest outbox when connected
-    } else {
-      throw new Error('Health check returned non-200');
-    }
-  } catch {
+  const { ok } = await apiClient.get('/api/health');
+  if (ok) {
+    connectionBadge.className = 'status-badge connected';
+    connectionLabel.textContent = 'Backend Online';
+    fetchHistory();
+  } else {
     connectionBadge.className = 'status-badge disconnected';
     connectionLabel.textContent = 'Backend Offline';
   }
 }
 
-// Handle Form Submission (Dispatch Email)
+// Validates form input and dispatches email via backend mail service
 async function handleSendMail(e) {
   e.preventDefault();
 
@@ -230,12 +452,11 @@ async function handleSendMail(e) {
     return;
   }
 
-  // Payload preparation
   const payload = {
     from,
     to,
-    cc: cc ? cc.split(',').map(s => s.trim()) : undefined,
-    bcc: bcc ? bcc.split(',').map(s => s.trim()) : undefined,
+    cc: cc ? cc.split(',').map((s) => s.trim()) : undefined,
+    bcc: bcc ? bcc.split(',').map((s) => s.trim()) : undefined,
     subject,
   };
 
@@ -245,29 +466,18 @@ async function handleSendMail(e) {
     payload.text = body;
   }
 
-  // Set loading UI
   setLoading(true);
 
   try {
-    const response = await fetch(`${apiBaseUrl}/api/mail/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Failed to dispatch email');
+    const { ok, data } = await apiClient.post('/api/mail/send', payload);
+    if (!ok || !data.success) {
+      throw new Error(data.message || data.error || 'Failed to dispatch email');
     }
 
     showToast('Email dispatched successfully!', 'success');
-    
-    // If an ethereal preview link is returned, notify user
-    if (result.data && result.data.previewUrl) {
-      console.log('[Patra] Preview URL:', result.data.previewUrl);
+
+    if (data.data && data.data.previewUrl) {
+      console.log('[Patra] Preview URL:', data.data.previewUrl);
     }
 
     fetchHistory();
@@ -279,50 +489,55 @@ async function handleSendMail(e) {
   }
 }
 
-// Fetch Outbox History
+// Fetches recent email dispatch history for the active user
 async function fetchHistory() {
   try {
-    const res = await fetch(`${apiBaseUrl}/api/mail/history?limit=20`);
-    if (!res.ok) return;
-    const result = await res.json();
-    if (result.success && Array.isArray(result.data)) {
-      renderHistory(result.data);
+    const { ok, data } = await apiClient.get('/api/mail/history?limit=20');
+    if (!ok) return;
+    if (data.success && Array.isArray(data.data)) {
+      renderHistory(data.data);
     }
   } catch (err) {
     console.warn('[Patra] Could not fetch history:', err.message);
   }
 }
 
-// Render History List
+// Renders outbox activity items with timestamps and preview links
 function renderHistory(items) {
   if (!items || items.length === 0) {
     historyContainer.innerHTML = '<div class="history-empty"><p>No emails sent yet in this session.</p></div>';
     return;
   }
 
-  historyContainer.innerHTML = items.map(item => {
-    const date = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const previewLinkHtml = item.previewUrl
-      ? `<a href="${item.previewUrl}" target="_blank" rel="noopener noreferrer" class="preview-link">Open Preview ↗</a>`
-      : `<span class="preview-link" style="opacity: 0.6;">SMTP Sent</span>`;
+  historyContainer.innerHTML = items
+    .map((item) => {
+      const date = new Date(item.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      const previewLinkHtml = item.previewUrl
+        ? `<a href="${item.previewUrl}" target="_blank" rel="noopener noreferrer" class="preview-link">Open Preview ↗</a>`
+        : `<span class="preview-link" style="opacity: 0.6;">SMTP Sent</span>`;
 
-    return `
-      <div class="history-item">
-        <div class="history-item-top">
-          <span class="history-to">To: ${escapeHtml(item.to)}</span>
-          <span class="history-badge">SENT</span>
+      return `
+        <div class="history-item">
+          <div class="history-item-top">
+            <span class="history-to">To: ${escapeHtml(item.to)}</span>
+            <span class="history-badge">SENT</span>
+          </div>
+          <div class="history-subject">${escapeHtml(item.subject || '(No subject)')}</div>
+          <div class="history-item-bottom">
+            <span>${date}</span>
+            ${previewLinkHtml}
+          </div>
         </div>
-        <div class="history-subject">${escapeHtml(item.subject || '(No subject)')}</div>
-        <div class="history-item-bottom">
-          <span>${date}</span>
-          ${previewLinkHtml}
-        </div>
-      </div>
-    `;
-  }).join('');
+      `;
+    })
+    .join('');
 }
 
-// Helper: Loading button state
+// Toggles button loading state and spinner animation during dispatch
 function setLoading(isLoading) {
   sendBtn.disabled = isLoading;
   if (isLoading) {
@@ -336,7 +551,7 @@ function setLoading(isLoading) {
   }
 }
 
-// Helper: Toast Notifications
+// Displays temporary toast notification on the screen
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
@@ -351,7 +566,7 @@ function showToast(message, type = 'info') {
   }, 3500);
 }
 
-// Helper: Escape HTML
+// Sanitizes string for safe insertion into HTML DOM
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -362,5 +577,4 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// Boot
 window.addEventListener('DOMContentLoaded', init);

@@ -9,7 +9,7 @@ const server = app.listen(config.port, () => {
   console.log('==============================================');
 });
 
-// Graceful shutdown handling
+// Gracefully terminates server connections on process termination signals
 process.on('SIGTERM', () => {
   console.log('[Server] SIGTERM received. Shutting down gracefully...');
   server.close(() => {

@@ -1,18 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const mailRoutes = require('./routes/mailRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
-// Middlewares
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// Request logging middleware
+// Logs HTTP request method, URL, status code, and duration
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -22,37 +23,43 @@ app.use((req, res, next) => {
   next();
 });
 
-// API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api', mailRoutes);
 
-// Root route
 app.get('/', (req, res) => {
   res.json({
-    name: 'Patra Mailing Service API',
+    name: 'Patra Mailing & Auth Service API',
     version: '1.0.0',
     documentation: '/api/health',
     endpoints: {
       health: 'GET /api/health',
+      register: 'POST /api/auth/register',
+      login: 'POST /api/auth/login',
+      me: 'GET /api/auth/me',
+      logout: 'POST /api/auth/logout',
       sendMail: 'POST /api/mail/send',
       history: 'GET /api/mail/history',
     },
   });
 });
 
-// 404 Handler
+// Handles unmatched routes with a 404 response
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    error: `Route not found: ${req.method} ${req.originalUrl}`,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
   });
 });
 
-// Global Error Handler
+// Global error handling middleware
 app.use((err, req, res, next) => {
-  console.error('[App] Unhandled error:', err);
-  res.status(err.status || 500).json({
+  console.error('[App] Unhandled error:', err.message);
+  const status = err.status || 500;
+  res.status(status).json({
     success: false,
-    error: err.message || 'Internal Server Error',
+    message: status === 500 && process.env.NODE_ENV === 'production'
+      ? 'Internal Server Error'
+      : err.message || 'Internal Server Error',
   });
 });
 
