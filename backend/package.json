@@ -1,0 +1,31 @@
+{
+  "name": "patra-backend",
+  "version": "1.0.0",
+  "description": "Backend service for Patra mailing application",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/database/migrate.js",
+    "test:check": "node -c src/server.js src/app.js src/config/index.js src/controllers/mailController.js src/controllers/authController.js src/services/mailService.js src/services/authService.js src/routes/mailRoutes.js src/routes/authRoutes.js src/repositories/userRepository.js src/utils/jwt.js src/middleware/authMiddleware.js src/database/index.js src/database/migrate.js"
+  },
+  "keywords": [
+    "email",
+    "mailing-service",
+    "patra",
+    "express",
+    "nodemailer"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^6.10.0",
+    "pg": "^8.23.1"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "patra-frontend",
+  "version": "1.0.0",
+  "description": "Frontend UI for Patra mailing service",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["patra", "mailing", "frontend", "ui"],
+  "author": "",
+  "license": "ISC"
+}
