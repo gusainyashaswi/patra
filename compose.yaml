@@ -1,0 +1,18 @@
+services:
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: patra-client
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+      - /app/.next
+    restart: unless-stopped

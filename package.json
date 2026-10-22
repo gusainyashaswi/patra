@@ -1,24 +1,22 @@
 {
   "name": "patra",
   "version": "1.0.0",
-  "description": "Full-stack mailing service application",
+  "private": true,
+  "description": "Full-stack mailing service application monorepo",
+  "packageManager": "npm@10.9.8",
   "scripts": {
-    "install:all": "npm install --prefix backend && npm install --prefix frontend",
-    "start:backend": "npm start --prefix backend",
-    "start:frontend": "npm start --prefix frontend",
-    "start": "npm run start:backend & npm run start:frontend",
-    "dev:backend": "npm run dev --prefix backend",
-    "dev:frontend": "npm run dev --prefix frontend",
-    "dev": "npm run dev:backend & npm run dev:frontend",
-    "migrate": "npm run migrate --prefix backend",
-    "test": "npm run test:check --prefix backend"
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "start": "turbo run start",
+    "migrate": "npm run migrate --workspace=server",
+    "format": "prettier --write \"**/*.{js,jsx,json,md}\""
   },
-  "keywords": [
-    "patra",
-    "email",
-    "mailing-service",
-    "nodemailer"
-  ],
-  "author": "",
-  "license": "ISC"
+  "devDependencies": {
+    "prettier": "^3.5.0",
+    "turbo": "^2.11.10"
+  },
+  "workspaces": [
+    "apps/*"
+  ]
 }
