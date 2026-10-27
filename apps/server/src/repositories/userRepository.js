@@ -1,46 +1,77 @@
-const db = require('../database');
+const { prisma } = require('../database');
 
 class UserRepository {
-  // Inserts a new user record and returns the safe user profile without password_hash
+  // Inserts a new user record and returns the safe user profile without passwordHash
   async create({ name, email, passwordHash, role = 'user' }) {
-    const text = `
-      INSERT INTO users (name, email, password_hash, role)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, name, email, role, is_verified, created_at, updated_at;
-    `;
-    const params = [name, email, passwordHash, role];
-    const { rows } = await db.query(text, params);
-    return rows[0];
+    const isPlatformAdmin = role === 'admin';
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        isPlatformAdmin,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isPlatformAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      ...user,
+      role: user.isPlatformAdmin ? 'admin' : 'user',
+    };
   }
 
-  // Finds a user by email, returning the password_hash for credential validation
+  // Finds a user by email, returning the passwordHash for credential validation
   async findByEmail(email) {
-    const text = `
-      SELECT id, name, email, password_hash, role, is_verified, created_at, updated_at
-      FROM users
-      WHERE LOWER(email) = LOWER($1)
-      LIMIT 1;
-    `;
-    const { rows } = await db.query(text, [email]);
-    return rows[0] || null;
+    const user = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      ...user,
+      password_hash: user.passwordHash,
+      role: user.isPlatformAdmin ? 'admin' : 'user',
+    };
   }
 
-  // Finds a user by ID without exposing the password_hash
+  // Finds a user by ID without exposing the passwordHash
   async findById(id) {
-    const text = `
-      SELECT id, name, email, role, is_verified, created_at, updated_at
-      FROM users
-      WHERE id = $1
-      LIMIT 1;
-    `;
-    const { rows } = await db.query(text, [id]);
-    return rows[0] || null;
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isPlatformAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      ...user,
+      role: user.isPlatformAdmin ? 'admin' : 'user',
+    };
   }
 
   // Returns the total count of registered users
   async count() {
-    const { rows } = await db.query('SELECT COUNT(*) AS total FROM users;');
-    return parseInt(rows[0].total, 10);
+    return prisma.user.count();
   }
 }
 

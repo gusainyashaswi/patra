@@ -1,60 +1,55 @@
 const { Pool } = require('pg');
+const { PrismaPg } = require('@prisma/adapter-pg');
+const { PrismaClient } = require('@prisma/client');
 const config = require('../config');
 
+// PostgreSQL connection pool used by pg and Prisma adapter
 const pool = new Pool({
-  connectionString: config.databaseUrl, //The url that tells postresql where to find the database
-  max: 20, //Maximum number of database connections that the pool should create simultaneously.
-  idleTimeoutMillis: 30000, //Number of milliseconds a client must wait before being disconnected
-  connectionTimeoutMillis: 5000, //Number of milliseconds a client must wait before being connected
+  connectionString: config.databaseUrl,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 pool.on('error', (err) => {
-  console.error('[Database] Unexpected error on idle PostgreSQL client:', err.message); 
+  console.error('[Database] Unexpected error on idle PostgreSQL client:', err.message);
 });
 
-// Executes a parameterized SQL query against the connection pool
+// Prisma 7 driver adapter using the shared pg connection pool
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
-// Also this fxn makes sure that other files can direclty use db.query instead of doing again and again pool.query
-
-// res.rows gives actual data returned by PostgreSQL.
-
+// Direct raw query helper for flexibility
 async function query(text, params) {
-  const start = Date.now(); //Start time of query
-  const res = await pool.query(text, params); //Actual line that talks to postgres sql
-  const duration = Date.now() - start; //How long did the query took
-  if (config.nodeEnv === 'development' && duration > 100) { //Logs the query that took more than 100ms and were in development mode
+  const start = Date.now();
+  const res = await pool.query(text, params);
+  const duration = Date.now() - start;
+  if (config.nodeEnv === 'development' && duration > 100) {
     console.log(`[Database] Slow query (${duration}ms): ${text}`);
   }
   return res;
 }
 
-//Here were asking the database Give me one actual database connection  
+// Retrieves a client directly from the pool
 async function getClient() {
-  const client = await pool.connect(); //pool.connect gives us one actual database connection 
+  const client = await pool.connect();
   return client;
 }
 
-// Database connectivity test ( basically asking can my Node.js backend successfully communicate with PostgreSQL?)
+// Database connectivity test
 async function testConnection() {
   try {
-    const res = await pool.query('SELECT NOW() AS current_time'); //Actual line that talks to postgres sql
-    return { ok: true, timestamp: res.rows[0].current_time }; //Returning the timestamp (we do rows[0] because rows is an array)
+    const res = await pool.query('SELECT NOW() AS current_time');
+    return { ok: true, timestamp: res.rows[0].current_time };
   } catch (error) {
     return { ok: false, error: error.message };
   }
 }
 
 module.exports = {
+  prisma,
   pool,
   query,
   getClient,
   testConnection,
 };
-
-
-// NOTE
-// query(
-//   'SELECT * FROM users WHERE email = $1',
-//   ['test@example.com']
-// );
-// Here the value of [$1]=['test@example.com']

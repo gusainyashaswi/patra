@@ -49,3 +49,8 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# AI Assistants & Skills
+.claude/
+.agents/skills/
+.windsurf/skills/
