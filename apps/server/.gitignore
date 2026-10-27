@@ -13,3 +13,10 @@ npm-debug.log*
 
 # OS & Misc
 .DS_Store
+
+/src/generated/prisma
+
+# AI Assistants & Skills
+.claude/
+.agents/skills/
+.windsurf/skills/
