@@ -1,22 +1,4 @@
-# Dependencies
-node_modules/
-
-# Environment Variables
+node_modules
+dist
 .env
-.env*.local
-!.env.example
-
-# Logs
-logs/
 *.log
-npm-debug.log*
-
-# OS & Misc
-.DS_Store
-
-/src/generated/prisma
-
-# AI Assistants & Skills
-.claude/
-.agents/skills/
-.windsurf/skills/

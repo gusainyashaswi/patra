@@ -1,42 +1,43 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "Backend service for Patra mailing application",
-  "main": "src/server.js",
+  "private": true,
+  "description": "Patra API server",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "build": "echo 'No build required for server'",
-    "lint": "node -c src/server.js src/app.js",
-    "migrate": "prisma db push",
-    "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "test:check": "node -c src/server.js src/app.js src/config/index.js src/controllers/mailController.js src/controllers/authController.js src/services/mailService.js src/services/authService.js src/routes/mailRoutes.js src/routes/authRoutes.js src/repositories/userRepository.js src/utils/jwt.js src/middleware/authMiddleware.js src/database/index.js src/database/migrate.js"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src/"
   },
-  "keywords": [
-    "email",
-    "mailing-service",
-    "patra",
-    "express",
-    "nodemailer"
-  ],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@prisma/adapter-pg": "^7.10.1",
-    "@prisma/client": "^7.10.1",
-    "bcryptjs": "^3.0.3",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.34.0",
+    "compression": "^1.8.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^18.0.9",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "express-rate-limit": "^8.7.0",
-    "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^6.10.0",
-    "pg": "^8.23.1"
+    "helmet": "^8.0.0",
+    "ioredis": "^5.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.12.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.2",
+    "resend": "^4.5.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
-    "prisma": "^7.10.1"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.7.5",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/morgan": "^1.9.9",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.20.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
   }
 }
