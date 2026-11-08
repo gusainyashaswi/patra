@@ -1,26 +1,219 @@
 @import "tailwindcss";
 
+/*
+  Patra design tokens — "paper & ink"
+  Warm cream paper, near-black ink, one hot orange. Sharp corners, hard rules,
+  heavy grotesk display type, spaced mono labels. No raw hex outside this file
+  (except email content, which always renders as paper).
+*/
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f1eee5;
+  --surface: #f7f5ee;
+  --surface-2: #e9e5da;
+  --surface-3: #ddd8cb;
+  --border: #d6d0c1;
+  --border-strong: #0e0e0e;
+  --fg: #0e0e0e;
+  --fg-muted: #45413a;
+  --fg-subtle: #6b665c;
+  --primary: #0e0e0e;
+  --primary-hover: #2a2926;
+  --on-primary: #f1eee5;
+  --accent: #f05a35;
+  --accent-hover: #e04a25;
+  --on-accent: #0e0e0e;
+  --accent-ink: #b8391a;
+  --accent-soft: #f8dccf;
+  --ring: #f05a35;
+  --nav: #0e0e0e;
+  --on-nav: #f1eee5;
+
+  --success: #1d7438;
+  --success-soft: #dcebd9;
+  --warning: #8f5200;
+  --warning-soft: #f4e4c4;
+  --danger: #b42318;
+  --danger-soft: #f6d7d1;
+  --info: #1f4fc9;
+  --info-soft: #dbe2f3;
+
+  --tint-1: #f05a35;
+  --tint-2: #f6946f;
+  --tint-3: #fac6b0;
+  --tint-4: #fbe3d8;
+  --panel: #fbfaf6;
+  --shadow-pop: 6px 6px 0 0 #0e0e0e;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e0e0e;
+  --surface: #141413;
+  --surface-2: #1b1b19;
+  --surface-3: #272624;
+  --border: #2a2926;
+  --border-strong: #4a4842;
+  --fg: #f1eee5;
+  --fg-muted: #bdb8ac;
+  --fg-subtle: #8f8a7f;
+  --primary: #f1eee5;
+  --primary-hover: #ffffff;
+  --on-primary: #0e0e0e;
+  --accent: #f05a35;
+  --accent-hover: #ff6b45;
+  --on-accent: #0e0e0e;
+  --accent-ink: #ff7a55;
+  --accent-soft: #2b1710;
+  --ring: #f05a35;
+  --nav: #080808;
+  --on-nav: #f1eee5;
+
+  --success: #5fd07f;
+  --success-soft: #11251a;
+  --warning: #f2b54a;
+  --warning-soft: #2a2010;
+  --danger: #ff7a6b;
+  --danger-soft: #2c1412;
+  --info: #86a6ff;
+  --info-soft: #121a30;
+
+  --tint-1: #f05a35;
+  --tint-2: #b8482c;
+  --tint-3: #6e3324;
+  --tint-4: #33201a;
+  --panel: #151413;
+  --shadow-pop: 6px 6px 0 0 #f05a35;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-ring: var(--ring);
+  --color-nav: var(--nav);
+  --color-on-nav: var(--on-nav);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-tint-1: var(--tint-1);
+  --color-tint-2: var(--tint-2);
+  --color-tint-3: var(--tint-3);
+  --color-tint-4: var(--tint-4);
+  --color-panel: var(--panel);
+  --shadow-card: none;
+  --shadow-pop: var(--shadow-pop);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-inter-tight);
+  --font-mono: var(--font-jetbrains);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Sharp, architectural corners everywhere (pills/dots keep rounded-full). */
+@theme {
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+}
+
+html {
+  background: var(--bg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Spaced mono label — the reference's "WHAT MAKES IT DIFFERENT" voice. */
+.label {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.display {
+  font-family: var(--font-inter-tight), var(--font-inter), sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+/* Faint drafting grid used behind hero blocks (as in the reference's dark page). */
+.grid-paper {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--fg) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--fg) 6%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.animate-fade-up { animation: fade-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-fade-in { animation: fade-in 260ms ease-out both; }
+.animate-pop-in { animation: pop-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
