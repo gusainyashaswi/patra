@@ -21,6 +21,7 @@ Teams that need to send email either pick a marketing tool that locks them into 
 ## 3. Goals and Non-Goals
 
 **Goals (MVP)**
+
 - Configure a mail transport and verify a sender identity.
 - Design, save, publish, and test-send templates on a visual canvas.
 - Import contacts from CSV with validation.
@@ -28,6 +29,7 @@ Teams that need to send email either pick a marketing tool that locks them into 
 - Track each recipient's status and show live progress.
 
 **Non-goals (MVP)**
+
 - Multi-user teams, invitations, and custom roles (designed for, not built).
 - Platform admin console.
 - Automated trigger-based sends (scheduled reminders, event rules). Planned as a later milestone.
@@ -44,18 +46,21 @@ Teams that need to send email either pick a marketing tool that locks them into 
 ## 5. Features
 
 ### 5.1 Mail Transport
+
 - Add a transport: SMTP, Resend, or AWS SES. Credentials are encrypted at rest and never returned to the client after saving; the UI shows a masked value.
 - Test the connection before the transport can be used for sending.
 - Each organization has one default transport in the MVP.
 - Transport is behind a common adapter interface, so sending code never references a provider directly.
 
 ### 5.2 Sender Identities
+
 - A sender identity is a display name, a From address, an optional Reply-To, and a default flag.
 - The From address must belong to a domain that is verified for the transport. The server enforces this, not the UI.
 - Campaigns reference a sender identity by ID. Free-text From fields are not allowed.
 - Domain verification (showing DNS records and polling status) is a post-MVP addition. In the MVP, the owner uses a domain verified directly in the provider's dashboard.
 
 ### 5.3 Template Designer
+
 - **Canvas:** a centered email preview with blocks (text, image, button, divider, spacer) that the user adds, reorders, selects, and edits.
 - **Properties panel:** edits the selected block. With nothing selected, it shows page settings: background, body width, text color, and alignment.
 - **Top bar:** template name, From (chosen from sender identities), Reply-To, subject, preview text, Draft or Published status, and Publish.
@@ -66,12 +71,14 @@ Teams that need to send email either pick a marketing tool that locks them into 
 - **Images:** uploaded to object storage and referenced by public URL. Base64 images are not used because email clients block them.
 
 ### 5.4 Audience
+
 - Import a CSV with a preview step. The preview shows parsed rows and validation errors without writing anything.
 - Commit the import with duplicate handling (by email address).
 - Each contact has an email, name, and custom fields used for merge variables.
 - Suppressed addresses (unsubscribed or hard-bounced) are excluded from every send.
 
 ### 5.5 Campaigns and Sending
+
 - Compose a campaign by choosing a published template version, a sender identity, and an audience.
 - Estimate the recipient count after suppressions, and check that every required variable exists for each recipient.
 - Send creates one recipient row and one queue job per recipient. The API returns immediately.
@@ -80,12 +87,14 @@ Teams that need to send email either pick a marketing tool that locks them into 
 - Each email includes a plain-text version and an unsubscribe link that the template cannot remove.
 
 ### 5.6 Delivery Tracking
+
 - Provider webhooks update each recipient's status: queued, sent, delivered, bounced, failed, opened, clicked, complained.
 - A hard bounce or complaint adds the address to suppressions automatically.
 - The campaign page shows live counters and a per-recipient table, filterable by status, with the error for failed rows.
 - Live updates use Server-Sent Events, fed by Redis pub/sub from the worker and the webhook handler.
 
 ### 5.7 Overview
+
 - Counters for the selected period: sent, delivered, bounced, failed, pending.
 - Recent campaigns with status.
 - Alerts: bounce rate above threshold, transport failing, domain not verified.
@@ -148,14 +157,14 @@ Every table that holds tenant data carries `organizationId`, and every query fil
 
 All organization routes are under `/api/orgs/:orgId`. The owner is the only caller, but the path shape stays the same for multi-user later.
 
-| Area | Method and path |
-|---|---|
-| Auth | `POST /api/auth/login`, `POST /api/auth/refresh`, `GET /api/auth/me` |
-| Transport | `GET, POST /api/orgs/:orgId/transports`, `POST /api/orgs/:orgId/transports/:id/test` |
-| Senders | `GET, POST /api/orgs/:orgId/senders` |
+| Area      | Method and path                                                                                                                                                                                                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth      | `POST /api/auth/login`, `POST /api/auth/refresh`, `GET /api/auth/me`                                                                                                                                                                                                                                     |
+| Transport | `GET, POST /api/orgs/:orgId/transports`, `POST /api/orgs/:orgId/transports/:id/test`                                                                                                                                                                                                                     |
+| Senders   | `GET, POST /api/orgs/:orgId/senders`                                                                                                                                                                                                                                                                     |
 | Templates | `GET, POST /api/orgs/:orgId/templates`, `GET /api/orgs/:orgId/templates/:id`, `PUT /api/orgs/:orgId/templates/:id/draft`, `POST /api/orgs/:orgId/templates/:id/publish`, `POST /api/orgs/:orgId/templates/:id/preview`, `POST /api/orgs/:orgId/templates/:id/test-send`, `POST /api/orgs/:orgId/uploads` |
-| Contacts | `POST /api/orgs/:orgId/contacts/import/preview`, `POST /api/orgs/:orgId/contacts/import` |
-| Campaigns | `GET, POST /api/orgs/:orgId/campaigns`, `GET /api/orgs/:orgId/campaigns/:id`, `POST /api/orgs/:orgId/campaigns/:id/send`, `GET /api/orgs/:orgId/campaigns/:id/recipients`, `GET /api/orgs/:orgId/campaigns/:id/stream` |
+| Contacts  | `POST /api/orgs/:orgId/contacts/import/preview`, `POST /api/orgs/:orgId/contacts/import`                                                                                                                                                                                                                 |
+| Campaigns | `GET, POST /api/orgs/:orgId/campaigns`, `GET /api/orgs/:orgId/campaigns/:id`, `POST /api/orgs/:orgId/campaigns/:id/send`, `GET /api/orgs/:orgId/campaigns/:id/recipients`, `GET /api/orgs/:orgId/campaigns/:id/stream`                                                                                   |
 
 Webhook receivers (`/api/webhooks/resend`) are not counted above because they are called by the provider, not by the user, and they verify a signature instead of a session.
 
