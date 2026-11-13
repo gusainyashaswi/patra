@@ -52,9 +52,11 @@ patra/
    npm install
    ```
 3. (Optional) Set up your SMTP credentials:
+
    ```bash
    cp .env.example .env
    ```
+
    > **Note:** If no SMTP credentials are provided, Patra automatically generates a temporary [Ethereal](https://ethereal.email/) test account so you can test sending emails immediately with web preview links.
 
 4. Start the backend server:

@@ -6,15 +6,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Middleware
 app.use(express.json());
 
-// Health check route
+app.get("/", (_req, res) => {
+  console.log("request in home");
+  res.json({ status: "ok", message: "WELCOME TO PATRA API" });
+});
+
 app.get("/health", (_req, res) => {
+  console.log("request in health");
   res.json({ status: "ok" });
 });
 
-// Server listener
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port http://localhost:${PORT}`);
 });
