@@ -1,23 +1,149 @@
-import { Schema, model, type Types } from "mongoose";
+import { Schema, model, type Types, type Model, type HydratedDocument } from "mongoose";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { schemaOptions } from "./base.js";
 
 export interface IUser {
   email: string;
   name?: string;
+  fullName?: string;
+  password?: string;
   passwordHash?: string;
+  refreshToken?: string;
+  avatar?: string;
   isPlatformAdmin: boolean;
 }
 
-const userSchema = new Schema<IUser>(
+export interface IUserMethods {
+  isPasswordCorrect(password: string): Promise<boolean>;
+  generateAccessToken(permissions?: string[]): string;
+  generateRefreshToken(): string;
+}
+
+export type UserModel = Model<IUser, {}, IUserMethods>;
+export type UserDocument = HydratedDocument<IUser, IUserMethods>;
+
+const userSchema = new Schema<IUser, UserModel, IUserMethods>(
   {
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    name: String,
-    passwordHash: { type: String, select: false },
-    isPlatformAdmin: { type: Boolean, default: false },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
+    name: {
+      type: String,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      select: false,
+    },
+    refreshToken: {
+      type: String,
+      select: false,
+    },
+    avatar: {
+      type: String,
+      default: "",
+    },
+    isPlatformAdmin: {
+      type: Boolean,
+      default: false,
+    },
   },
   schemaOptions,
 );
-export const User = model<IUser>("User", userSchema);
+
+// Virtual getters/setters for compatibility with fullName & passwordHash
+userSchema
+  .virtual("fullName")
+  .get(function () {
+    return this.name;
+  })
+  .set(function (val: string) {
+    this.name = val;
+  });
+
+userSchema
+  .virtual("passwordHash")
+  .get(function () {
+    return this.password;
+  })
+  .set(function (val: string) {
+    this.password = val;
+  });
+
+// Pre-save hook: hashes password before saving
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || !this.password) {
+    return next ? next() : undefined;
+  }
+
+  this.password = await bcrypt.hash(this.password, 10);
+  if (next) next();
+});
+
+// Compare password
+userSchema.methods.isPasswordCorrect = async function (password: string): Promise<boolean> {
+  if (!this.password) return false;
+  return await bcrypt.compare(password, this.password);
+};
+
+// Generate Access Token (Backend2-yuvi standard with Patra RBAC support)
+userSchema.methods.generateAccessToken = function (permissions: string[] = []): string {
+  const secret =
+    process.env.ACCESS_TOKEN_SECRET ||
+    process.env.JWT_ACCESS_SECRET ||
+    process.env.JWT_SECRET ||
+    "patra_jwt_access_secret_super_secure_key_123456789";
+
+  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY || process.env.JWT_EXPIRES_IN || "1d";
+
+  return jwt.sign(
+    {
+      _id: this._id,
+      id: this._id.toString(),
+      sub: this._id.toString(),
+      email: this.email,
+      name: this.name,
+      fullName: this.name,
+      isPlatformAdmin: this.isPlatformAdmin,
+      permissions,
+    },
+    secret,
+    {
+      expiresIn: expiresIn as any,
+    },
+  );
+};
+
+// Generate Refresh Token
+userSchema.methods.generateRefreshToken = function (): string {
+  const secret =
+    process.env.REFRESH_TOKEN_SECRET ||
+    process.env.JWT_REFRESH_SECRET ||
+    "patra_jwt_refresh_secret_super_secure_key_987654321";
+
+  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY || process.env.JWT_REFRESH_EXPIRES_IN || "10d";
+
+  return jwt.sign(
+    {
+      _id: this._id,
+      id: this._id.toString(),
+      sub: this._id.toString(),
+    },
+    secret,
+    {
+      expiresIn: expiresIn as any,
+    },
+  );
+};
+
+export const User = model<IUser, UserModel>("User", userSchema);
 
 export interface IRefreshToken {
   userId: Types.ObjectId;

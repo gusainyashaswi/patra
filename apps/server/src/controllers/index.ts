@@ -1,2 +1,1 @@
-// Request controllers and route handlers
-export {};
+export * from "./auth.controller.js";

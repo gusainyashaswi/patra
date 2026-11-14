@@ -1,23 +1,22 @@
-import express from "express";
 import dotenv from "dotenv";
-
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 4000;
+import { app } from "./app.js";
+import { connectDB } from "./db/index.js";
+import { env } from "./config/env.js";
 
-app.use(express.json());
+const PORT = process.env.PORT || env.PORT || 5001;
 
-app.get("/", (_req, res) => {
-  console.log("request in home");
-  res.json({ status: "ok", message: "WELCOME TO PATRA API" });
-});
-
-app.get("/health", (_req, res) => {
-  console.log("request in health");
-  res.json({ status: "ok" });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port http://localhost:${PORT}`);
-});
+// Connect to MongoDB and start listening
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Patra API server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err);
+    app.listen(PORT, () => {
+      console.log(`🚀 Patra API server running in fallback mode on http://localhost:${PORT}`);
+    });
+  });
