@@ -85,20 +85,55 @@ function TransportForm({ create, toast }) {
   );
 }
 
-function Transports({ items, create, toast }) {
+function Transports({ items, create, toast, runAction }) {
+  const [busy, setBusy] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+
+  async function act(id, action) {
+    if (busy) return;
+    setBusy({ id, action });
+    setFeedback(null);
+    try {
+      const result = await runAction(id, action);
+      if (action === "test") {
+        setFeedback({ message: result.message, error: result.status === "FAILED" });
+      } else {
+        const conflicts = result.conflicts.length
+          ? ` Already on another transport: ${result.conflicts.join(", ")}.`
+          : "";
+        setFeedback({ message: `Synced ${result.synced} domains.${conflicts}` });
+      }
+    } catch (error) {
+      setFeedback({ message: error.message, error: true });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <section>
       <div className="mb-2 flex items-end justify-between gap-6 border-b-2 border-line-strong pb-6">
         <div>
           <h2 className="display text-[28px]">Mail transports</h2>
-          <p className="mt-2 text-muted">Add a Resend transport. Connection testing is not available yet.</p>
+          <p className="mt-2 text-muted">Check your Resend key and sync verified sending domains.</p>
         </div>
         <TransportForm create={create} toast={toast} />
       </div>
+      {feedback && <p className="my-4" role={feedback.error ? "alert" : "status"}>{feedback.message}</p>}
       <div className="divide-y divide-line">
         {!items.length && <p className="py-6 text-muted">No transports yet.</p>}
         {items.map((t) => (
           <Row key={t.id ?? t._id} icon={<Icon.Server size={17} />} title={t.name}
+            right={t.type === "RESEND" && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" size="sm" disabled={!!busy}
+                  loading={busy?.id === (t.id ?? t._id) && busy.action === "test"}
+                  onClick={() => act(t.id ?? t._id, "test")}>Test connection</Button>
+                <Button variant="secondary" size="sm" disabled={!!busy}
+                  loading={busy?.id === (t.id ?? t._id) && busy.action === "domains/sync"}
+                  onClick={() => act(t.id ?? t._id, "domains/sync")}>Sync domains</Button>
+              </div>
+            )}
             meta={`${providerMeta[t.type] ?? t.type} · ${t.ratePerSecond}/s${t.dailyLimit ? `, ${fmt.n(t.dailyLimit)}/day` : ""}`}>
             <StatusBadge status={t.status} />
             {t.isDefault && <Badge>Default</Badge>}
@@ -114,7 +149,7 @@ function Domains({ items }) {
     <section>
       <div className="mb-2 border-b-2 border-line-strong pb-6">
         <h2 className="display text-[28px]">Sending domains</h2>
-        <p className="mt-2 max-w-xl text-[16px] text-muted">Verify domains in your provider’s dashboard (SPF, DKIM, DMARC). In-app verification is coming.</p>
+        <p className="mt-2 max-w-xl text-[16px] text-muted">Verify your domain in Resend, then sync domains from its transport in Settings.</p>
       </div>
       <div className="divide-y divide-line">
         {!items.length && <p className="py-6 text-muted">No sending domains are registered for this organization.</p>}
@@ -336,9 +371,22 @@ function SettingsData({ tab, orgId, token, toast }) {
     const { data } = await api(`${path}/${tab}`, { token, method: "POST", body });
     setResult((current) => ({ ...current, items: [...current.items, data] }));
   }
+  async function runTransportAction(id, action) {
+    const { data } = await api(`${path}/transports/${id}/${action}`, { token, method: "POST" });
+    if (action === "test") {
+      setResult((current) => ({
+        ...current,
+        items: current.items.map((item) => (item.id ?? item._id) === id
+          ? { ...item, status: data.status, lastTestedAt: data.lastTestedAt }
+          : item),
+      }));
+    }
+    return data;
+  }
+
   if (error) return <SettingsError error={error} retry={() => { setError(null); setRetry((n) => n + 1); }} />;
   if (!result) return <p role="status">Loading {tab}…</p>;
   if (tab === "domains") return <Domains items={result.items} />;
   if (tab === "senders") return <Senders {...result} create={create} toast={toast} />;
-  return <Transports items={result.items} create={create} toast={toast} />;
+  return <Transports items={result.items} create={create} toast={toast} runAction={runTransportAction} />;
 }
