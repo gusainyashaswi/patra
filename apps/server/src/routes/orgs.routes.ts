@@ -7,6 +7,9 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { transportRouter } from "./transports.routes.js";
 import { senderRouter } from "./senders.routes.js";
 
+import { Domain } from "../models/mailTransport.model.js";
+import { requirePermission } from "../middleware/requirePermission.js";
+
 export const orgRouter = Router();
 const scopedRouter = Router({ mergeParams: true });
 
@@ -24,4 +27,8 @@ scopedRouter.get("/", asyncHandler(async (req, res) => {
 }));
 scopedRouter.use("/transports", transportRouter);
 scopedRouter.use("/senders", senderRouter);
+scopedRouter.get("/domains", requirePermission("manage_senders"), asyncHandler(async (req, res) => {
+  const data = await Domain.find({ organizationId: req.user!.organizationId }).sort({ name: 1 });
+  res.json({ data });
+}));
 orgRouter.use("/:orgId", requireOrgAccess, scopedRouter);
