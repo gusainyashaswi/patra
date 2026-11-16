@@ -26,7 +26,9 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const { token } = await api("/auth/login", { method: "POST", body: { email, password } });
+      const result = await api("/auth/login", { method: "POST", body: { email, password } });
+      const token = result.data?.accessToken ?? result.data?.token ?? result.token;
+      if (typeof token !== "string" || !token) throw new Error("Login did not return an access token.");
       localStorage.setItem("patra-token", token);
       router.push("/dashboard");
     } catch (err) {
