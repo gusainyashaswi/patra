@@ -5,6 +5,7 @@ import { requireOrgAccess } from "../middleware/orgAccess.js";
 import { Membership, Organization } from "../models/identity.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { transportRouter } from "./transports.routes.js";
+import { senderRouter } from "./senders.routes.js";
 
 export const orgRouter = Router();
 const scopedRouter = Router({ mergeParams: true });
@@ -22,4 +23,5 @@ scopedRouter.get("/", asyncHandler(async (req, res) => {
   res.json({ data: await Organization.findById(req.user!.organizationId) });
 }));
 scopedRouter.use("/transports", transportRouter);
+scopedRouter.use("/senders", senderRouter);
 orgRouter.use("/:orgId", requireOrgAccess, scopedRouter);
