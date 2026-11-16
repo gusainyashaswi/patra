@@ -3,7 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/errors.js";
 import { authRouter } from "./routes/auth.routes.js";
-import { transportRouter } from "./routes/transports.routes.js";
+import { orgRouter } from "./routes/orgs.routes.js";
 import { env } from "./config/env.js";
 
 export const app = express();
@@ -35,7 +35,7 @@ app.get("/api/health", (_req, res) => {
 
 // API Routes
 app.use("/api/auth", authRouter);
-app.use("/api/orgs/:orgId/transports", transportRouter);
+app.use("/api/orgs", orgRouter);
 
 // Central Error Handler
 app.use(errorHandler);

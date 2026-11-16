@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/requirePermission.js";
 import { validate } from "../middleware/validate.js";
 import * as schema from "../schemas/transport.schema.js";
@@ -7,7 +6,6 @@ import * as service from "../services/transport.service.js";
 
 export const transportRouter = Router({ mergeParams: true });
 
-transportRouter.use(requireAuth);
 
 transportRouter.get(
   "/",
