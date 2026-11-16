@@ -1,3 +1,4 @@
+import { syncResendDomains } from "../services/domains.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { resourceParams } from "../middleware/orgAccess.js";
 import { Router } from "express";
@@ -41,5 +42,14 @@ transportRouter.post(
   asyncHandler(async (req, res) => {
     const { orgId, id } = resourceParams.parse(req.params);
     res.json({ data: await service.checkConnection(orgId, id) });
+  }),
+);
+
+transportRouter.post(
+  "/:id/domains/sync",
+  requirePermission("manage_transport"),
+  asyncHandler(async (req, res) => {
+    const { orgId, id } = resourceParams.parse(req.params);
+    res.json({ data: await syncResendDomains(orgId, id) });
   }),
 );
