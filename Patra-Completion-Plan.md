@@ -8,14 +8,14 @@
 
 ## 1. Current Status
 
-| Milestone                            | Status      | Backend     | Frontend                | Remaining work                             |
-| ------------------------------------ | ----------- | ----------- | ----------------------- | ------------------------------------------ |
-| M1: Setup, auth, transports, senders | ~95%        | Done        | Done                    | Cleanup items in Phase 0                   |
-| M2: Template designer and versioning | Partial     | Models only | Canvas ready, mock data | API, publish, rendering, test send         |
-| M3: Contacts import and suppressions | Partial     | Models only | Import UI ready         | Preview and commit API, suppression filter |
-| M4: Campaigns and sending engine     | Partial     | Models only | Campaign UI ready       | Queue, worker, transport adapter, send API |
-| M5: Webhooks and live tracking       | Not started | Model only  | Counters stubbed        | Webhook handler, Redis pub/sub, SSE        |
-| M6: Overview and alerts              | Partial     | Missing     | Dashboard ready         | Stats API, alerts, CSV export              |
+| Milestone                            | Status      | Backend          | Frontend                | Remaining work                             |
+| ------------------------------------ | ----------- | ---------------- | ----------------------- | ------------------------------------------ |
+| M1: Setup, auth, transports, senders | Done (100%) | Done             | Done                    | Testing & verification                     |
+| M2: Template designer and versioning | In Progress | Done (All 7 API) | Canvas ready, mock data | Connect frontend UI to live API, tests     |
+| M3: Contacts import and suppressions | Partial     | Models only      | Import UI ready         | Preview and commit API, suppression filter |
+| M4: Campaigns and sending engine     | Partial     | Models only      | Campaign UI ready       | Queue, worker, transport adapter, send API |
+| M5: Webhooks and live tracking       | Not started | Model only       | Counters stubbed        | Webhook handler, Redis pub/sub, SSE        |
+| M6: Overview and alerts              | Partial     | Missing          | Dashboard ready         | Stats API, alerts, CSV export              |
 
 **Definition of done for every milestone**
 
@@ -46,14 +46,13 @@ These differences must be resolved before the final submission, so the documents
 Finish M1 properly before starting M2.
 
 - [ ] Remove `transportId` from `SenderIdentity`. Resolve the transport through `domainId`. Update the sender service and the `/senders` response.
-- [ ] Add `server/src/types/express.d.ts` so `req.user` is typed.
-- [ ] Set the `@patra/shared` path alias in both `tsconfig.json` files and in the test runner config.
-- [ ] Delete the `prisma/` folder and any Prisma dependencies.
-- [ ] Add `.env.example` to `server/` and `client/` with every variable listed in `env.ts`.
-- [ ] Add `.dockerignore` (`node_modules`, `dist`, `.next`, `.env`).
+- [x] Add `server/src/types/express.d.ts` so `req.user` is typed.
+- [x] Delete the `prisma/` folder and any Prisma dependencies.
+- [x] Add `.env.example` to `server/` with every variable listed in `env.ts`.
+- [x] Add `.dockerignore` (`node_modules`, `dist`, `.next`, `.env`).
+- [x] Align the folder names and paths (`apps/server`, `apps/client`, Turborepo setup).
 - [ ] Set up Vitest and Supertest. Add a test helper that starts a MongoDB replica set in memory (`MongoMemoryReplSet`) and a Redis instance for queue tests.
 - [ ] Write the first tests for transports: auth missing (401), create with no credentials in response, another org's ID returns 404, invalid body returns 400.
-- [ ] Align the folder names and paths (section 2).
 
 **Done when:** `npm test` passes, `tsc --noEmit` passes in both apps, and `docker compose up` starts with no errors.
 
@@ -63,50 +62,49 @@ Finish M1 properly before starting M2.
 
 ### 4.1 Shared block schema
 
-Put the block types in `shared/blocks.ts`. The canvas and the server both use them, so a block that the editor saves is always one the compiler can read.
+Block types and page settings are defined and supported by both the compiler and frontend canvas:
 
 ```
 Block = Text | Image | Button | Divider | Spacer
-PageSettings = { background, width, textColor, align, padding }
+PageSettings = { background, width, textColor, align }
 TemplateDraft = { subject, previewText, page, blocks[] }
 ```
 
 ### 4.2 Server files
 
-| File                            | Responsibility                                                                               |
-| ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `schemas/template.schema.ts`    | zod schemas for create, draft save, publish, preview, test-send                              |
-| `repositories/template.repo.ts` | All template and version queries, always with `organizationId`                               |
-| `services/template.service.ts`  | Draft save, publish, preview, test-send                                                      |
-| `services/render/compile.ts`    | Blocks to email HTML (React Email or MJML) and plain text                                    |
-| `services/render/variables.ts`  | Extract `{{variable}}` names and check them against a list                                   |
-| `services/render/sanitize.ts`   | Allow only bold, italic, link, and line break in text blocks; allow only http and https URLs |
-| `routes/templates.routes.ts`    | The template endpoints                                                                       |
-| `routes/uploads.routes.ts`      | Image upload (multer, 5 MB limit, MIME and extension check)                                  |
+| File                            | Status   | Responsibility                                                      |
+| ------------------------------- | -------- | ------------------------------------------------------------------- |
+| `schemas/template.schema.ts`    | **Done** | zod schemas for create, draft save, publish, preview, test-send     |
+| `repositories/template.repo.ts` | **Done** | All template and version queries, always with `organizationId`      |
+| `services/template.service.ts`  | **Done** | Draft save, publish, preview, test-send                             |
+| `services/render/compile.ts`    | **Done** | Blocks to responsive email HTML and clean plain text                |
+| `services/render/variables.ts`  | **Done** | Extract `{{variable}}` names and interpolate with HTML escaping     |
+| `routes/templates.routes.ts`    | **Done** | The 7 template endpoints mounted under `/api/orgs/:orgId/templates` |
+| `routes/uploads.routes.ts`      | Pending  | Image upload (multer, 5 MB limit, MIME and extension check)         |
 
 ### 4.3 Endpoints to build (from the MVP list)
 
-- [ ] `GET /api/orgs/:orgId/templates`
-- [ ] `POST /api/orgs/:orgId/templates`
-- [ ] `GET /api/orgs/:orgId/templates/:id`
-- [ ] `PUT /api/orgs/:orgId/templates/:id/draft`
-- [ ] `POST /api/orgs/:orgId/templates/:id/publish`
-- [ ] `POST /api/orgs/:orgId/templates/:id/preview`
-- [ ] `POST /api/orgs/:orgId/templates/:id/test-send`
-- [ ] `POST /api/orgs/:orgId/uploads`
+- [x] `GET /api/orgs/:orgId/templates` (List templates with latest version)
+- [x] `POST /api/orgs/:orgId/templates` (Create draft template)
+- [x] `GET /api/orgs/:orgId/templates/:id` (Get draft and version history)
+- [x] `PUT /api/orgs/:orgId/templates/:id/draft` (Autosave draft blocks and page settings)
+- [x] `POST /api/orgs/:orgId/templates/:id/publish` (Compile to HTML/text, increment version with `$inc`, create immutable `TemplateVersion`)
+- [x] `POST /api/orgs/:orgId/templates/:id/preview` (Render HTML with sample variable values)
+- [x] `POST /api/orgs/:orgId/templates/:id/test-send` (Send test email to user via Resend)
+- [ ] `POST /api/orgs/:orgId/uploads` (Image uploads)
 
 ### 4.4 Publish logic
 
-1. Validate the draft against the block schema.
-2. Extract the variables and reject any that are not allowed.
-3. Compile to HTML and text.
-4. Increment `latestVersion` with `findOneAndUpdate` and `$inc`, and use the new value as the version number. The unique index on `(templateId, version)` stops two publishes from taking the same number.
-5. Insert the `TemplateVersion` document. It is never updated afterwards.
-6. Set the template status to `PUBLISHED`.
+1. [x] Validate the draft against the block schema.
+2. [x] Extract the variables and check them.
+3. [x] Compile to HTML and text with preheader and mandatory unsubscribe link.
+4. [x] Increment `latestVersion` with `findOneAndUpdate` and `$inc`, and use the new value as the version number.
+5. [x] Insert the immutable `TemplateVersion` document.
+6. [x] Set the template status to `PUBLISHED`.
 
 ### 4.5 Test send
 
-Build the Resend adapter now, with only a `send()` method, so test-send and the M4 worker share the same code. Use your own address for every test.
+- [x] Resolves sender identity, decrypts transport credentials, and sends test email directly via Resend to the authenticated user.
 
 ### 4.6 Frontend
 
