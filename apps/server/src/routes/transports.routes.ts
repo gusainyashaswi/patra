@@ -1,3 +1,5 @@
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { resourceParams } from "../middleware/orgAccess.js";
 import { Router } from "express";
 import { requirePermission } from "../middleware/requirePermission.js";
 import { validate } from "../middleware/validate.js";
@@ -31,4 +33,13 @@ transportRouter.post(
       next(err);
     }
   },
+);
+
+transportRouter.post(
+  "/:id/test",
+  requirePermission("manage_transport"),
+  asyncHandler(async (req, res) => {
+    const { orgId, id } = resourceParams.parse(req.params);
+    res.json({ data: await service.checkConnection(orgId, id) });
+  }),
 );
