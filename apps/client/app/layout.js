@@ -28,6 +28,10 @@ export default function RootLayout({ children }) {
       suppressHydrationWarning
       className={`${inter.variable} ${interTight.variable} ${jetbrains.variable} h-full antialiased`}
     >
+      <head>
+        {/* Patra supplies its own themes. Prevent style rewriting before hydration. */}
+        <meta name="darkreader-lock" />
+      </head>
       <body className="min-h-full">
         <Script id="patra-theme" strategy="beforeInteractive">
           {themeScript}
