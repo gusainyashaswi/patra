@@ -1,15 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EmailPaper } from "@/components/EmailRender";
 import { Icon } from "@/components/icons";
 import { Button, Card, EmptyState, PageHeader, SearchInput, StatusBadge, fmt } from "@/components/ui";
+import TemplatePicker from "@/components/TemplatePicker";
+import { readDrafts, subscribeDrafts } from "@/lib/template-drafts";
 import { templates } from "@/lib/mock";
 
 export default function TemplatesPage() {
   const [q, setQ] = useState("");
-  const rows = templates.filter((t) => t.name.toLowerCase().includes(q.toLowerCase()));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [drafts, setDrafts] = useState([]);
+  useEffect(() => {
+    const refresh = () => setDrafts(readDrafts());
+    const unsubscribe = subscribeDrafts(refresh);
+    queueMicrotask(refresh);
+    return unsubscribe;
+  }, []);
+  const rows = [...drafts, ...templates].filter((t) => t.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <>
@@ -17,11 +27,13 @@ export default function TemplatesPage() {
         title="Templates"
         description="Design once, publish a version, reuse it in any campaign. Editing never changes mail that's already queued."
         actions={
-          <Button href="/templates/tp_2">
+          <Button onClick={() => setPickerOpen(true)}>
             <Icon.Plus size={15} /> New template
           </Button>
         }
       />
+
+      {pickerOpen && <TemplatePicker open onClose={() => setPickerOpen(false)} />}
 
       <div className="mb-10 flex justify-end">
         <SearchInput className="w-full sm:w-64" placeholder="Search templates" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -53,7 +65,7 @@ export default function TemplatesPage() {
                 </div>
                 <p className="mt-1 truncate text-[14px] text-muted">{t.subject}</p>
                 <p className="mt-3 text-[13px] text-subtle">
-                  v{t.latestVersion} · Edited {fmt.date(t.updatedAt)}
+                  {t.id.startsWith("local-") ? "Browser draft" : `v${t.latestVersion}`} · Edited {fmt.date(t.updatedAt)}
                 </p>
               </div>
             </Link>

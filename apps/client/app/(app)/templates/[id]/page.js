@@ -21,6 +21,8 @@ import {
 } from "@/components/ui";
 import { byId, me, senders, templates, variables } from "@/lib/mock";
 
+import { readDrafts, saveDraft } from "@/lib/template-drafts";
+
 const palette = [
   { type: "text", label: "Text", icon: Icon.Type, make: () => ({ text: "Write something clear and kind.", size: 15, weight: 400 }) },
   { type: "image", label: "Image", icon: Icon.Image, make: () => ({ src: "", alt: "Describe this image", height: 180 }) },
@@ -29,8 +31,7 @@ const palette = [
   { type: "spacer", label: "Spacer", icon: Icon.Spacer, make: () => ({ height: 24 }) },
 ];
 
-let uid = 100;
-const newId = () => `b${++uid}`;
+const newId = () => crypto.randomUUID();
 const usedVars = (t) =>
   [...new Set([t.subject, ...t.blocks.map((b) => b.text ?? b.label ?? "")].join(" ").match(/\{\{\s*\w+\s*\}\}/g) ?? [])].map((v) =>
     v.replace(/[{}\s]/g, ""),
@@ -208,7 +209,28 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef }) {
 
 export default function Designer() {
   const { id } = useParams();
-  const source = byId(templates, id) ?? templates[0];
+  return <DesignerRoute key={id} id={id} />;
+}
+
+function DesignerRoute({ id }) {
+  const [local, setLocal] = useState(undefined);
+  useEffect(() => {
+    if (!id.startsWith("local-")) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setLocal(readDrafts().find((draft) => draft.id === id) ?? null);
+    });
+    return () => { active = false; };
+  }, [id]);
+
+  const isLocal = id.startsWith("local-");
+  if (isLocal && local === undefined) return <p className="p-6" role="status">Loading draft…</p>;
+  const source = isLocal ? local : byId(templates, id);
+  if (!source) return <div className="p-6"><p>Template not found.</p><Link className="underline" href="/templates">Back to templates</Link></div>;
+  return <TemplateEditor source={source} isLocal={isLocal} />;
+}
+
+function TemplateEditor({ source, isLocal }) {
   const [tpl, setTpl] = useState(() => structuredClone(source));
   const [selected, setSelected] = useState(null);
   const [mode, setMode] = useState("edit");
@@ -221,7 +243,7 @@ export default function Designer() {
   const [dirtySincePublish, setDirtySincePublish] = useState(source.status === "DRAFT");
   const textRef = useRef(null);
 
-  // Autosave: edits mark the draft "saving"; a debounce settles it (PUT /templates/:id/draft).
+  // Save starter drafts in this browser. Existing demo templates keep their simulated behavior.
   const update = useCallback((fn) => {
     setTpl((t) => fn(structuredClone(t)));
     setSaveState("saving");
@@ -229,9 +251,19 @@ export default function Designer() {
   }, []);
   useEffect(() => {
     if (saveState !== "saving") return;
+    if (isLocal) {
+      let status = "saved";
+      try {
+        saveDraft(tpl);
+      } catch {
+        status = "error";
+      }
+      const task = setTimeout(() => setSaveState(status), 0);
+      return () => clearTimeout(task);
+    }
     const t = setTimeout(() => setSaveState("saved"), 700);
     return () => clearTimeout(t);
-  }, [tpl, saveState]);
+  }, [tpl, saveState, isLocal]);
 
   const block = tpl.blocks.find((b) => b.id === selected) ?? null;
   const preview = mode === "preview";
@@ -289,8 +321,12 @@ export default function Designer() {
       const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        setSaveState("saved");
-        setToast("Draft saved");
+        if (isLocal) {
+          setSaveState("saving");
+        } else {
+          setSaveState("saved");
+          setToast("Draft saved");
+        }
         return;
       }
       if (typing || !selected) return;
@@ -302,7 +338,7 @@ export default function Designer() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  }, [selected, isLocal]);
 
   const vars = usedVars(tpl);
   const missingDefs = vars.filter((v) => !variables.some((x) => x.key === v));
@@ -326,13 +362,15 @@ export default function Designer() {
           <span className="hidden items-center gap-1.5 text-[14px] text-subtle md:flex" aria-live="polite">
             {saveState === "saving" ? (
               <><Icon.Loader size={12} /> Saving…</>
+            ) : saveState === "error" ? (
+              <>Couldn’t save draft</>
             ) : (
-              <><Icon.Check size={13} /> Draft saved</>
+              <><Icon.Check size={13} /> {isLocal ? "Saved on this browser" : "Draft saved"}</>
             )}
           </span>
         </div>
 
-        <div className="mx-auto hidden lg:block">
+        <div className="mx-auto">
           <Segmented
             label="Mode"
             size="sm"
@@ -358,18 +396,18 @@ export default function Designer() {
               ]}
             />
           </div>
-          <Button variant="secondary" size="sm" onClick={() => setTestOpen(true)}>
+          {!isLocal && <><Button variant="secondary" size="sm" onClick={() => setTestOpen(true)}>
             <Icon.Mail size={14} /> <span className="hidden sm:inline">Send test</span>
           </Button>
           <Button size="sm" onClick={() => setPublishOpen(true)} disabled={!dirtySincePublish}>
             {dirtySincePublish ? "Publish" : "Published"}
-          </Button>
+          </Button></>}
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Left: blocks + variables */}
-        <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-line bg-surface md:block" aria-label="Blocks">
+        <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-line bg-surface lg:block" aria-label="Blocks">
           <PanelSection title="Add block">
             <div className="grid grid-cols-2 gap-2">
               {palette.map((p) => (
@@ -412,9 +450,17 @@ export default function Designer() {
         {/* Center: envelope + canvas */}
         <main className="min-w-0 flex-1 overflow-y-auto" onClick={() => setSelected(null)}>
           <div className="mx-auto flex max-w-[760px] flex-col gap-4 px-4 py-6">
+            <div className="flex flex-wrap gap-2 lg:hidden">
+              {!preview && palette.map((item) => (
+                <Button key={item.type} variant="secondary" size="sm" onClick={(event) => { event.stopPropagation(); addBlock(item); }}>
+                  <item.icon size={14} /> {item.label}
+                </Button>
+              ))}
+            </div>
+            {saveState === "error" && <p role="alert" className="text-danger">Couldn’t save this draft in your browser.</p>}
             <div className="rounded-xl border border-line bg-surface" onClick={(e) => e.stopPropagation()}>
               {[
-                ["From", <span key="f" className="text-[15px]">{sender.displayName} <span className="text-subtle">&lt;{sender.fromEmail}&gt;</span></span>],
+                ["From", isLocal ? <span key="f" className="text-subtle">Choose a sender when sending</span> : <span key="f" className="text-[15px]">{sender.displayName} <span className="text-subtle">&lt;{sender.fromEmail}&gt;</span></span>],
                 ["Subject", <input key="s" aria-label="Subject" value={tpl.subject} onChange={(e) => update((t) => ({ ...t, subject: e.target.value }))} className="w-full bg-transparent text-[15px] font-medium focus:outline-none" />],
                 ["Preview", <input key="p" aria-label="Preview text" value={tpl.previewText} placeholder="Shown after the subject in most inboxes" onChange={(e) => update((t) => ({ ...t, previewText: e.target.value }))} className="w-full bg-transparent text-[15px] text-muted placeholder:text-subtle focus:outline-none" />],
               ].map(([k, v], i) => (
@@ -503,7 +549,10 @@ export default function Designer() {
         </main>
 
         {/* Right: properties */}
-        <aside className="hidden w-[300px] shrink-0 overflow-y-auto border-l border-line bg-surface lg:block" aria-label="Properties">
+        <aside className={cx(
+          "shrink-0 overflow-y-auto border-t border-line bg-surface lg:max-h-none lg:w-[300px] lg:border-l lg:border-t-0",
+          block && !preview ? "max-h-[36dvh]" : "hidden lg:block",
+        )} aria-label="Properties">
           <Properties
             block={block}
             page={tpl.page}

@@ -94,7 +94,7 @@ export function EmailPaper({ template, preview = true, width, className, childre
             template.blocks.map((b) => <BlockView key={b.id} block={b} page={page} preview={preview} />)}
         </div>
         <p className="px-8 py-5 text-center" style={{ fontSize: 11.5, color: "#a8a29e" }}>
-          You’re receiving this because you registered for Rishihood Fest.{" "}
+          {template.footerText ?? "You’re receiving this because you registered for Rishihood Fest."}{" "}
           <span style={{ textDecoration: "underline" }}>Unsubscribe</span>
         </p>
       </div>
