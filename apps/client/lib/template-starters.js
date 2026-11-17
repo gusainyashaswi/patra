@@ -35,6 +35,22 @@ export const starters = [
       paragraph("Registration is free. Sign up by 25 November."),
     ],
   },
+  {
+    id: "confirmation",
+    name: "Registration confirmation",
+    description: "Confirm a place and give attendees a reference.",
+    subject: "Your Campus Design Workshop spot is confirmed",
+    previewText: "Save your registration reference and check the event details.",
+    blocks: [
+      heading("You’re registered"),
+      paragraph("Hi {{name}}, your spot at the Campus Design Workshop is confirmed."),
+      section("Registration details"),
+      paragraph("Reference: {{ticket_id}}"),
+      paragraph("27 November · 2–4 pm · Innovation Lab, Building B"),
+      button("View event details", "workshop"),
+      paragraph("Keep this email handy for check-in."),
+    ],
+  },
 ];
 
 export const blankStarter = { name: "Untitled template", subject: "", previewText: "", blocks: [] };
