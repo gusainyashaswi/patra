@@ -6,6 +6,7 @@ import { EmailPaper } from "./EmailRender";
 import { Icon } from "./icons";
 import { Button, cx } from "./ui";
 import { createDraft } from "@/lib/template-drafts";
+import { draftContent, templateRequest } from "@/lib/template-api";
 import { blankStarter, starterContent, starters } from "@/lib/template-starters";
 
 const starterIcons = {
@@ -16,7 +17,7 @@ const starterIcons = {
   newsletter: Icon.Layout,
 };
 
-export default function TemplatePicker({ onClose }) {
+export default function TemplatePicker({ onClose, workspace }) {
   const router = useRouter();
   const dialog = useRef(null);
   const preview = useRef(null);
@@ -42,16 +43,23 @@ export default function TemplatePicker({ onClose }) {
     preview.current?.scrollTo(0, 0);
   }, [selection]);
 
-  function openDraft(starter) {
+  async function openDraft(starter) {
     if (creating) return;
     setError("");
     setCreating(true);
     try {
-      const draft = createDraft(starter);
+      const draft = workspace
+        ? await templateRequest(workspace, "/templates", { method: "POST", body: draftContent(starterContent(starter)) })
+        : createDraft(starter);
+      if (workspace) {
+        onClose();
+        router.push(`/templates/${draft.id}?org=${workspace.org.id}`);
+        return;
+      }
       onClose();
       router.push(`/templates/${draft.id}`);
-    } catch {
-      setError("Couldn’t save the draft. Check whether your browser allows local storage and try again.");
+    } catch (error) {
+      setError(workspace ? error.message : "Couldn’t save the draft in this browser.");
       setCreating(false);
     }
   }
@@ -118,7 +126,7 @@ export default function TemplatePicker({ onClose }) {
         <footer className="border-t border-line px-4 py-3 sm:px-7 sm:py-4">
           {error && <p role="alert" className="mb-2 text-sm text-danger">{error}</p>}
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <p className="mr-auto hidden text-sm text-muted sm:block">Drafts save in this browser.</p>
+            <p className="mr-auto hidden text-sm text-muted sm:block">{workspace ? `Saved to ${workspace.org.name}` : "Drafts save in this browser."}</p>
             <Button variant="secondary" disabled={creating} onClick={() => openDraft(blankStarter)}>Start blank</Button>
             <Button disabled={creating} onClick={() => openDraft(selection)}>Use template <Icon.ChevronRight size={16} /></Button>
           </div>

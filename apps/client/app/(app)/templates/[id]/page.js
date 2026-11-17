@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BlockView, EmailPaper, sampleData } from "@/components/EmailRender";
 import { Icon } from "@/components/icons";
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui";
 import { byId, me, senders, templates, variables } from "@/lib/mock";
 
+import { api } from "@/lib/api";
+import { draftContent, templateRequest, uploadTemplateImage, useTemplateWorkspace } from "@/lib/template-api";
 import { readDrafts, saveDraft } from "@/lib/template-drafts";
 
 const palette = [
@@ -84,7 +86,9 @@ function ColorField({ label, value, onChange, id }) {
   );
 }
 
-function Properties({ block, page, onBlock, onPage, insertVar, textRef }) {
+function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   if (!block) {
     return (
       <>
@@ -115,7 +119,7 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef }) {
         <div className="px-4 py-4 text-[14px] text-subtle">
           <p className="flex items-start gap-2">
             <Icon.Info size={14} className="mt-0.5 shrink-0" />
-            Select a block on the canvas to edit it. Every email gets a plain-text version and an unsubscribe link automatically.
+            Select a block on the canvas to edit it. Publishing generates a plain-text version.
           </p>
         </div>
       </>
@@ -146,7 +150,7 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef }) {
             <div className="grid grid-cols-2 gap-3">
               <Field label="Size" htmlFor="bk-size">
                 <Select id="bk-size" value={block.size} onChange={(e) => set({ size: +e.target.value })}>
-                  {[13, 15, 17, 22, 28].map((s) => (
+                  {[...new Set([13, 15, 16, 17, 20, 22, 28, 30, block.size])].sort((a, b) => a - b).map((s) => (
                     <option key={s} value={s}>{s}px</option>
                   ))}
                 </Select>
@@ -175,11 +179,22 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef }) {
         )}
         {block.type === "image" && (
           <>
-            <button className="flex h-24 flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong text-[14px] text-muted hover:border-accent hover:text-fg cursor-pointer transition-colors">
-              <Icon.Upload size={17} />
-              Upload image
-              <span className="text-[12px] text-subtle">PNG or JPG, up to 2 MB</span>
-            </button>
+            {upload ? (
+              <Field label="Upload image" htmlFor="bk-image" hint="PNG or JPEG, up to 2 MB" error={uploadError}>
+                <Input id="bk-image" type="file" accept="image/png,image/jpeg" disabled={uploading}
+                  onChange={async (event) => {
+                    const input = event.currentTarget;
+                    const file = input.files?.[0];
+                    if (!file) return;
+                    setUploadError("");
+                    setUploading(true);
+                    try { set({ src: await upload(file) }); }
+                    catch (error) { setUploadError(error.message); }
+                    finally { setUploading(false); input.value = ""; }
+                  }} />
+                {uploading && <p role="status">Uploading image…</p>}
+              </Field>
+            ) : <p className="text-sm text-muted">Save to a workspace to upload images.</p>}
             <Field label="Alt text" htmlFor="bk-alt" hint="Shown when images are blocked, and read by screen readers.">
               <Input id="bk-alt" value={block.alt} onChange={(e) => set({ alt: e.target.value })} />
             </Field>
@@ -213,6 +228,33 @@ export default function Designer() {
 }
 
 function DesignerRoute({ id }) {
+  if (/^[a-f0-9]{24}$/i.test(id)) return <WorkspaceEditor id={id} />;
+  return <BrowserEditor id={id} />;
+}
+
+function WorkspaceEditor({ id }) {
+  const { workspace, error } = useTemplateWorkspace();
+  const [draft, setDraft] = useState(null);
+  const [failure, setFailure] = useState(null);
+  useEffect(() => {
+    if (!workspace) return;
+    let active = true;
+    templateRequest(workspace, `/templates/${id}`).then(
+      (data) => { if (active) setDraft(data); },
+      (error) => { if (active) setFailure(error); },
+    );
+    return () => { active = false; };
+  }, [workspace, id]);
+  if (error || failure || workspace === null) return (
+    <div className="p-6">
+      <p role="alert">{(error || failure)?.message ?? "Sign in to open this workspace draft."}</p>
+      <Link href={workspace ? "/templates" : "/login"} className="underline">{workspace ? "Back to templates" : "Sign in"}</Link>
+    </div>
+  );
+  return draft ? <TemplateEditor source={draft} workspace={workspace} /> : <p className="p-6" role="status">Loading draft…</p>;
+}
+
+function BrowserEditor({ id }) {
   const [local, setLocal] = useState(undefined);
   useEffect(() => {
     if (!id.startsWith("local-")) return;
@@ -230,8 +272,20 @@ function DesignerRoute({ id }) {
   return <TemplateEditor source={source} isLocal={isLocal} />;
 }
 
-function TemplateEditor({ source, isLocal }) {
+function TemplateEditor({ source, isLocal, workspace }) {
+  const router = useRouter();
+  const [version, setVersion] = useState(source.latestVersion);
+  const [actionError, setActionError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [compiled, setCompiled] = useState(null);
+  const [previewError, setPreviewError] = useState("");
+  const [testOptions, setTestOptions] = useState(null);
+  const [senderId, setSenderId] = useState("");
+  const testRequest = useRef(null);
+  const saved = useRef({ snapshot: source, revision: source.revision });
+  const pendingSave = useRef(Promise.resolve());
   const [tpl, setTpl] = useState(() => structuredClone(source));
+  const initialDraft = useRef(tpl);
   const [selected, setSelected] = useState(null);
   const [mode, setMode] = useState("edit");
   const [device, setDevice] = useState("desktop");
@@ -243,6 +297,19 @@ function TemplateEditor({ source, isLocal }) {
   const [dirtySincePublish, setDirtySincePublish] = useState(source.status === "DRAFT");
   const textRef = useRef(null);
 
+  const saveWorkspaceDraft = useCallback((snapshot) => {
+    const task = pendingSave.current.then(async () => {
+      if (snapshot === saved.current.snapshot || (saved.current.snapshot === source && snapshot === initialDraft.current)) return saved.current.revision;
+      const data = await templateRequest(workspace, `/templates/${source.id}/draft`, {
+        method: "PUT", body: { draft: draftContent(snapshot), revision: saved.current.revision },
+      });
+      saved.current = { snapshot, revision: data.revision };
+      return data.revision;
+    });
+    pendingSave.current = task.catch(() => {});
+    return task;
+  }, [workspace, source]);
+
   // Save starter drafts in this browser. Existing demo templates keep their simulated behavior.
   const update = useCallback((fn) => {
     setTpl((t) => fn(structuredClone(t)));
@@ -250,7 +317,7 @@ function TemplateEditor({ source, isLocal }) {
     setDirtySincePublish(true);
   }, []);
   useEffect(() => {
-    if (saveState !== "saving") return;
+    if (workspace || saveState !== "saving") return;
     if (isLocal) {
       let status = "saved";
       try {
@@ -263,7 +330,40 @@ function TemplateEditor({ source, isLocal }) {
     }
     const t = setTimeout(() => setSaveState("saved"), 700);
     return () => clearTimeout(t);
-  }, [tpl, saveState, isLocal]);
+  }, [tpl, saveState, isLocal, workspace]);
+  useEffect(() => {
+    if (!workspace || !dirtySincePublish || tpl === initialDraft.current) return;
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        await saveWorkspaceDraft(tpl);
+        if (active) { setSaveState("saved"); setSaveError(""); }
+      } catch (error) {
+        if (active) { setSaveState("error"); setSaveError(error.message); }
+      }
+    }, 450);
+    return () => { active = false; clearTimeout(timer); };
+  }, [tpl, workspace, dirtySincePublish, saveWorkspaceDraft]);
+
+  useEffect(() => {
+    if (!workspace || saveState === "saved") return;
+    const guard = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [workspace, saveState]);
+
+  useEffect(() => {
+    if (!workspace || mode !== "preview") return;
+    let active = true;
+    templateRequest(workspace, `/templates/${source.id}/preview`, { method: "POST", body: draftContent(tpl) }).then(
+      (data) => { if (active) { setCompiled({ data, snapshot: tpl }); setPreviewError(""); } },
+      (error) => { if (active) setPreviewError(error.message); },
+    );
+    return () => { active = false; };
+  }, [workspace, mode, source.id, tpl]);
 
   const block = tpl.blocks.find((b) => b.id === selected) ?? null;
   const preview = mode === "preview";
@@ -321,7 +421,13 @@ function TemplateEditor({ source, isLocal }) {
       const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        if (isLocal) {
+        if (workspace) {
+          setSaveState("saving");
+          saveWorkspaceDraft(tpl).then(
+            () => { setSaveState("saved"); setSaveError(""); },
+            (error) => { setSaveState("error"); setSaveError(error.message); },
+          );
+        } else if (isLocal) {
           setSaveState("saving");
         } else {
           setSaveState("saved");
@@ -338,17 +444,85 @@ function TemplateEditor({ source, isLocal }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, isLocal]);
+  }, [selected, isLocal, workspace, saveWorkspaceDraft, tpl]);
 
   const vars = usedVars(tpl);
   const missingDefs = vars.filter((v) => !variables.some((x) => x.key === v));
   const sender = senders.find((s) => s.isDefault);
 
+  async function leaveEditor() {
+    try {
+      await saveWorkspaceDraft(tpl);
+      router.push("/templates");
+    } catch (error) {
+      setSaveState("error");
+      setSaveError(error.message);
+    }
+  }
+
+  async function openTest() {
+    setActionError("");
+    setTestOpen(true);
+    if (!workspace) return;
+    setTestOptions(null);
+    setSenderId("");
+    try {
+      const [{ data: user }, senders] = await Promise.all([
+        api("/auth/me", { token: workspace.token }),
+        templateRequest(workspace, "/senders"),
+      ]);
+      setTestOptions({ recipient: user.email, senders });
+      setSenderId(senders.find((sender) => sender.isDefault)?.id ?? senders[0]?.id ?? "");
+    } catch (error) { setActionError(error.message); }
+  }
+
+  async function runAction(action) {
+    setBusy(true);
+    setActionError("");
+    try {
+      const revision = await saveWorkspaceDraft(tpl);
+      setSaveState("saved");
+      setSaveError("");
+      let body = { revision };
+      if (action === "test-send") {
+        const key = `${revision}/${senderId}`;
+        if (testRequest.current?.key !== key) testRequest.current = { key, id: crypto.randomUUID() };
+        body = { revision, senderId, requestId: testRequest.current.id };
+      }
+      const result = await templateRequest(workspace, `/templates/${source.id}/${action}`, { method: "POST", body });
+      if (action === "publish") {
+        setVersion(result.version);
+        setDirtySincePublish(false);
+        setPublishOpen(false);
+        setToast(`Version ${result.version} published`);
+      } else {
+        testRequest.current = null;
+        setTestOpen(false);
+        setToast(`Resend accepted the test for ${result.recipient}`);
+      }
+    } catch (error) { setActionError(error.message); }
+    finally { setBusy(false); }
+  }
+
+  async function copyToWorkspace() {
+    setBusy(true);
+    try {
+      const token = localStorage.getItem("patra-token");
+      if (!token || token === "undefined") { router.push("/login"); return; }
+      const { data: orgs } = await api("/orgs", { token });
+      if (!orgs.length) throw new Error("Your account has no organization.");
+      const org = orgs[0];
+      const draft = await templateRequest({ token, org }, "/templates", { method: "POST", body: draftContent(tpl) });
+      router.push(`/templates/${draft.id}?org=${org.id}`);
+    } catch (error) { setSaveError(error.message); }
+    finally { setBusy(false); }
+  }
+
   return (
     <div className="flex h-screen flex-col bg-bg">
       {/* Top bar */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-3">
-        <Button variant="ghost" size="icon-sm" href="/templates" aria-label="Back to templates">
+        <Button variant="ghost" size="icon-sm" href={workspace ? undefined : "/templates"} onClick={workspace ? leaveEditor : undefined} aria-label="Back to templates">
           <Icon.ChevronLeft size={17} />
         </Button>
         <div className="flex min-w-0 items-center gap-2.5">
@@ -396,11 +570,12 @@ function TemplateEditor({ source, isLocal }) {
               ]}
             />
           </div>
-          {!isLocal && <><Button variant="secondary" size="sm" onClick={() => setTestOpen(true)}>
+          {isLocal && <Button size="sm" loading={busy} onClick={copyToWorkspace}>Save to workspace</Button>}
+          {!isLocal && <><Button variant="secondary" size="sm" onClick={openTest}>
             <Icon.Mail size={14} /> <span className="hidden sm:inline">Send test</span>
           </Button>
-          <Button size="sm" onClick={() => setPublishOpen(true)} disabled={!dirtySincePublish}>
-            {dirtySincePublish ? "Publish" : "Published"}
+          <Button size="sm" onClick={() => { setActionError(""); setPublishOpen(true); }} disabled={!dirtySincePublish}>
+            {dirtySincePublish ? "Publish" : version ? `Published v${version}` : "Published"}
           </Button></>}
         </div>
       </header>
@@ -457,10 +632,10 @@ function TemplateEditor({ source, isLocal }) {
                 </Button>
               ))}
             </div>
-            {saveState === "error" && <p role="alert" className="text-danger">Couldn’t save this draft in your browser.</p>}
+            {(saveError || saveState === "error") && <p role="alert" className="text-danger">{saveError || "Couldn’t save this draft in your browser."}</p>}
             <div className="rounded-xl border border-line bg-surface" onClick={(e) => e.stopPropagation()}>
               {[
-                ["From", isLocal ? <span key="f" className="text-subtle">Choose a sender when sending</span> : <span key="f" className="text-[15px]">{sender.displayName} <span className="text-subtle">&lt;{sender.fromEmail}&gt;</span></span>],
+                ["From", isLocal || workspace ? <span key="f" className="text-subtle">Choose a sender when sending</span> : <span key="f" className="text-[15px]">{sender.displayName} <span className="text-subtle">&lt;{sender.fromEmail}&gt;</span></span>],
                 ["Subject", <input key="s" aria-label="Subject" value={tpl.subject} onChange={(e) => update((t) => ({ ...t, subject: e.target.value }))} className="w-full bg-transparent text-[15px] font-medium focus:outline-none" />],
                 ["Preview", <input key="p" aria-label="Preview text" value={tpl.previewText} placeholder="Shown after the subject in most inboxes" onChange={(e) => update((t) => ({ ...t, previewText: e.target.value }))} className="w-full bg-transparent text-[15px] text-muted placeholder:text-subtle focus:outline-none" />],
               ].map(([k, v], i) => (
@@ -471,6 +646,19 @@ function TemplateEditor({ source, isLocal }) {
               ))}
             </div>
 
+            {workspace && preview ? (
+              previewError ? <p role="alert" className="text-danger">{previewError}</p> :
+              compiled?.snapshot === tpl ? (
+                <div className="mx-auto w-full" style={{ maxWidth: device === "mobile" ? 390 : 760 }}>
+                  <p className="mb-3 font-semibold">{compiled.data.subject}</p>
+                  <iframe title="Rendered email preview" sandbox="" srcDoc={compiled.data.html} className="h-[60dvh] w-full rounded-xl border border-line bg-white" />
+                  <details className="mt-4 rounded-lg border border-line p-3">
+                    <summary className="cursor-pointer font-medium">Plain-text version</summary>
+                    <pre className="mt-3 whitespace-pre-wrap break-words text-sm">{compiled.data.text}</pre>
+                  </details>
+                </div>
+              ) : <p role="status">Rendering preview…</p>
+            ) : <>
             <div
               className="overflow-hidden rounded-xl border border-line transition-[max-width] duration-300 mx-auto w-full"
               style={{ maxWidth: device === "mobile" ? 390 : "100%" }}
@@ -545,6 +733,8 @@ function TemplateEditor({ source, isLocal }) {
                 Previewing with sample data for {sampleData.name}. Variables are HTML-escaped when sent.
               </p>
             )}
+            </>}
+
           </div>
         </main>
 
@@ -554,13 +744,16 @@ function TemplateEditor({ source, isLocal }) {
           block && !preview ? "max-h-[36dvh]" : "hidden lg:block",
         )} aria-label="Properties">
           <Properties
+            key={block?.id ?? "page"}
             block={block}
+            upload={workspace ? (file) => uploadTemplateImage(workspace, file) : null}
             page={tpl.page}
             textRef={textRef}
             insertVar={insertVar}
             onBlock={(bid, patch) =>
               update((t) => {
-                Object.assign(t.blocks.find((b) => b.id === bid), patch);
+                const target = t.blocks.find((b) => b.id === bid);
+                if (target) Object.assign(target, patch);
                 return t;
               })
             }
@@ -571,16 +764,17 @@ function TemplateEditor({ source, isLocal }) {
 
       <Dialog
         open={publishOpen}
-        onClose={() => setPublishOpen(false)}
-        title={`Publish version ${source.latestVersion + 1}?`}
+        onClose={() => { if (!busy) setPublishOpen(false); }}
+        title={`Publish version ${version + 1}?`}
         description="Publishing creates a locked version that campaigns can use. Campaigns already queued keep the version they pinned."
         footer={
           <>
-            <Button variant="secondary" onClick={() => setPublishOpen(false)}>Keep editing</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setPublishOpen(false)}>Keep editing</Button>
             <Button
               loading={busy}
               disabled={missingDefs.length > 0}
               onClick={() => {
+                if (workspace) { runAction("publish"); return; }
                 setBusy(true);
                 setTimeout(() => {
                   setBusy(false);
@@ -598,7 +792,7 @@ function TemplateEditor({ source, isLocal }) {
         <ul className="flex flex-col gap-2.5 text-[14px]">
           <li className="flex items-center gap-2"><Icon.CheckCircle size={16} className="text-success" /> Subject and {tpl.blocks.length} blocks</li>
           <li className="flex items-center gap-2"><Icon.CheckCircle size={16} className="text-success" /> Plain-text version generated</li>
-          <li className="flex items-center gap-2"><Icon.CheckCircle size={16} className="text-success" /> Unsubscribe link included</li>
+          {actionError && <li role="alert" className="text-danger">{actionError}</li>}
           <li className="flex items-start gap-2">
             {missingDefs.length ? (
               <><Icon.Alert size={16} className="mt-0.5 text-danger" /> Unknown variables: {missingDefs.join(", ")}. Fix them before publishing.</>
@@ -611,15 +805,17 @@ function TemplateEditor({ source, isLocal }) {
 
       <Dialog
         open={testOpen}
-        onClose={() => setTestOpen(false)}
+        onClose={() => { if (!busy) setTestOpen(false); }}
         title="Send a test email"
         description="Test sends use sample data and only go to your own address."
         footer={
           <>
-            <Button variant="secondary" onClick={() => setTestOpen(false)}>Cancel</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setTestOpen(false)}>Cancel</Button>
             <Button
               loading={busy}
+              disabled={workspace && !senderId}
               onClick={() => {
+                if (workspace) { runAction("test-send"); return; }
                 setBusy(true);
                 setTimeout(() => {
                   setBusy(false);
@@ -633,9 +829,21 @@ function TemplateEditor({ source, isLocal }) {
           </>
         }
       >
-        <Field label="Send to" hint="Your account email. Changing it is disabled to prevent accidental sends.">
-          <Input value={me.email} disabled />
-        </Field>
+        {actionError && <p role="alert" className="mb-3 text-danger">{actionError}</p>}
+        {workspace ? (testOptions ? (
+          <div className="space-y-4">
+            <Field label="Send to" htmlFor="test-recipient"><Input id="test-recipient" value={testOptions.recipient} readOnly /></Field>
+            {testOptions.senders.length ? (
+              <Field label="Sender identity" htmlFor="test-sender">
+                <Select id="test-sender" value={senderId} onChange={(event) => setSenderId(event.target.value)}>
+                  {testOptions.senders.map((sender) => <option key={sender.id} value={sender.id}>{sender.displayName} · {sender.fromEmail}</option>)}
+                </Select>
+              </Field>
+            ) : <Link href="/settings?tab=senders" className="underline">Add a sender in Settings</Link>}
+          </div>
+        ) : !actionError && <p role="status">Loading senders…</p>) : (
+          <Field label="Send to"><Input value={me.email} disabled /></Field>
+        )}
       </Dialog>
 
       <Toast message={toast} onDone={() => setToast("")} />
