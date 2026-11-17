@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/errors.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { orgRouter } from "./routes/orgs.routes.js";
+import { publicImageRouter } from "./routes/uploads.routes.js";
 import { env } from "./config/env.js";
 
 export const app = express();
@@ -16,7 +17,11 @@ app.use(
   }),
 );
 
-app.use(express.json({ limit: "16kb" }));
+const parseJson = express.json({ limit: "16kb" });
+app.use((req, res, next) => {
+  if (/^\/api\/orgs\/[^/]+\/templates(?:\/|$)/i.test(req.path)) return next();
+  parseJson(req, res, next);
+});
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser());
 
@@ -36,6 +41,7 @@ app.get("/api/health", (_req, res) => {
 // API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/orgs", orgRouter);
+app.use("/api/uploads", publicImageRouter);
 
 // Central Error Handler
 app.use(errorHandler);

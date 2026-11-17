@@ -7,6 +7,7 @@ export interface ITemplate {
   name: string;
   status: TemplateStatus;
   draftBlocks?: unknown;
+  draftRevision?: string;
 }
 
 const templateSchema = new Schema<ITemplate>(
@@ -20,6 +21,7 @@ const templateSchema = new Schema<ITemplate>(
     name: { type: String, required: true },
     status: { type: String, enum: [...TEMPLATE_STATUSES], default: "DRAFT" },
     draftBlocks: Schema.Types.Mixed,
+    draftRevision: String,
   },
   schemaOptions,
 );
@@ -35,6 +37,7 @@ export interface ITemplateVersion {
   html: string;
   text: string;
   variables: string[];
+  draftRevision?: string;
 }
 
 const templateVersionSchema = new Schema<ITemplateVersion>(
@@ -48,6 +51,7 @@ const templateVersionSchema = new Schema<ITemplateVersion>(
     html: { type: String, required: true },
     text: { type: String, required: true },
     variables: { type: [String], default: [] },
+    draftRevision: String,
   },
   schemaOptions,
 );

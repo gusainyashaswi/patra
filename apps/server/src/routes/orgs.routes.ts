@@ -10,6 +10,9 @@ import { senderRouter } from "./senders.routes.js";
 import { Domain } from "../models/mailTransport.model.js";
 import { requirePermission } from "../middleware/requirePermission.js";
 
+import { templateRouter } from "./templates.routes.js";
+import { uploadRouter } from "./uploads.routes.js";
+
 export const orgRouter = Router();
 const scopedRouter = Router({ mergeParams: true });
 
@@ -27,6 +30,8 @@ scopedRouter.get("/", asyncHandler(async (req, res) => {
 }));
 scopedRouter.use("/transports", transportRouter);
 scopedRouter.use("/senders", senderRouter);
+scopedRouter.use("/templates", templateRouter);
+scopedRouter.use("/uploads", uploadRouter);
 scopedRouter.get("/domains", requirePermission("manage_senders"), asyncHandler(async (req, res) => {
   const data = await Domain.find({ organizationId: req.user!.organizationId }).sort({ name: 1 });
   res.json({ data });
