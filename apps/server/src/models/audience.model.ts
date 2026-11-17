@@ -36,6 +36,7 @@ export interface IList {
   organizationId: Types.ObjectId;
   name: string;
   contactIds: Types.ObjectId[];
+  importKey?: string;
 }
 const listSchema = new Schema<IList>(
   {
@@ -46,10 +47,12 @@ const listSchema = new Schema<IList>(
       index: true,
     },
     name: { type: String, required: true },
+    importKey: String,
     contactIds: { type: [Schema.Types.ObjectId], ref: "Contact", default: [] },
   },
   schemaOptions,
 );
+listSchema.index({ organizationId: 1, importKey: 1 }, { unique: true, partialFilterExpression: { importKey: { $type: "string" } } });
 export const List = model<IList>("List", listSchema);
 
 export interface ISuppression {
