@@ -20,6 +20,21 @@ export const starters = [
       paragraph("Questions? Reply to this email and the library team will help."),
     ],
   },
+  {
+    id: "invitation",
+    name: "Event invitation",
+    description: "Give people the details and a clear way to register.",
+    subject: "You’re invited to the Campus Design Workshop",
+    previewText: "Join us on 27 November for an afternoon of hands-on design.",
+    blocks: [
+      heading("Campus Design Workshop"),
+      paragraph("Bring an idea and turn it into a prototype with other students. All experience levels are welcome."),
+      section("When and where"),
+      paragraph("27 November · 2–4 pm · Innovation Lab, Building B"),
+      button("Register for the workshop", "workshop/register"),
+      paragraph("Registration is free. Sign up by 25 November."),
+    ],
+  },
 ];
 
 export const blankStarter = { name: "Untitled template", subject: "", previewText: "", blocks: [] };
