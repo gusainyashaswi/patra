@@ -33,7 +33,7 @@ export default function TemplatesPage() {
         }
       />
 
-      {pickerOpen && <TemplatePicker open onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && <TemplatePicker onClose={() => setPickerOpen(false)} />}
 
       <div className="mb-10 flex justify-end">
         <SearchInput className="w-full sm:w-64" placeholder="Search templates" value={q} onChange={(e) => setQ(e.target.value)} />
