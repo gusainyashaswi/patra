@@ -88,20 +88,16 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
     password,
   });
 
-  // Provision initial Organization, Role, and Membership for the user
-  let org = await Organization.findOne();
-  if (!org) {
-    org = await Organization.create({
-      name: `${user.name || "Owner"}'s Organization`,
-      slug: `org-${user._id.toString().slice(-6)}`,
-      timezone: "UTC",
-    });
-  }
+  // New accounts own a separate organization. Existing organizations require explicit membership.
+  const org = await Organization.create({
+    name: `${user.name || "Owner"}'s Organization`,
+    slug: `org-${user._id.toString()}`,
+    timezone: "UTC",
+  });
 
-  let role = await Role.findOne({ name: "org_admin" });
-  if (!role) {
-    role = await Role.create({
-      name: "org_admin",
+  const role = await Role.findOneAndUpdate(
+    { name: "org_admin", organizationId: null },
+    { $setOnInsert: {
       description: "Organization Administrator with full access",
       permissions: [
         "manage_transport",
@@ -114,8 +110,9 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
         "manage_org",
       ],
       isSystem: true,
-    });
-  }
+    } },
+    { upsert: true, new: true, runValidators: true },
+  );
 
   await Membership.findOneAndUpdate(
     { userId: user._id, organizationId: org._id },
