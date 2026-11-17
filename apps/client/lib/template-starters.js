@@ -51,6 +51,21 @@ export const starters = [
       paragraph("Keep this email handy for check-in."),
     ],
   },
+  {
+    id: "reminder",
+    name: "Event reminder",
+    description: "Share arrival instructions and what to bring.",
+    subject: "Reminder: Campus Design Workshop on 27 November",
+    previewText: "Check-in starts at 1:45 pm. Bring your laptop.",
+    blocks: [
+      heading("See you at the workshop"),
+      paragraph("The Campus Design Workshop starts at 2 pm on 27 November."),
+      section("Before you arrive"),
+      paragraph("Check in from 1:45 pm at the Innovation Lab, Building B. Bring a laptop and charger."),
+      button("View event details", "workshop"),
+      paragraph("Can’t make it? Reply to let the organizers know."),
+    ],
+  },
 ];
 
 export const blankStarter = { name: "Untitled template", subject: "", previewText: "", blocks: [] };
