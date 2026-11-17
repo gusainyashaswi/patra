@@ -7,6 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { transportRouter } from "./transports.routes.js";
 import { senderRouter } from "./senders.routes.js";
 import { templateRouter } from "./templates.routes.js";
+import { contactRouter } from "./contacts.routes.js";
 
 import { Domain } from "../models/mailTransport.model.js";
 import { requirePermission } from "../middleware/requirePermission.js";
@@ -37,6 +38,7 @@ scopedRouter.get(
 scopedRouter.use("/transports", transportRouter);
 scopedRouter.use("/senders", senderRouter);
 scopedRouter.use("/templates", templateRouter);
+scopedRouter.use("/contacts", contactRouter);
 
 scopedRouter.get(
   "/domains",

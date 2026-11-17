@@ -8,14 +8,14 @@
 
 ## 1. Current Status
 
-| Milestone                            | Status      | Backend          | Frontend                | Remaining work                             |
-| ------------------------------------ | ----------- | ---------------- | ----------------------- | ------------------------------------------ |
-| M1: Setup, auth, transports, senders | Done (100%) | Done             | Done                    | Testing & verification                     |
-| M2: Template designer and versioning | In Progress | Done (All 7 API) | Canvas ready, mock data | Connect frontend UI to live API, tests     |
-| M3: Contacts import and suppressions | Partial     | Models only      | Import UI ready         | Preview and commit API, suppression filter |
-| M4: Campaigns and sending engine     | Partial     | Models only      | Campaign UI ready       | Queue, worker, transport adapter, send API |
-| M5: Webhooks and live tracking       | Not started | Model only       | Counters stubbed        | Webhook handler, Redis pub/sub, SSE        |
-| M6: Overview and alerts              | Partial     | Missing          | Dashboard ready         | Stats API, alerts, CSV export              |
+| Milestone                            | Status      | Backend                      | Frontend                | Remaining work                             |
+| ------------------------------------ | ----------- | ---------------------------- | ----------------------- | ------------------------------------------ |
+| M1: Setup, auth, transports, senders | Done (100%) | Done                         | Done                    | Testing & verification                     |
+| M2: Template designer and versioning | In Progress | Done (All 7 API)             | Canvas ready, mock data | Connect frontend UI to live API, tests     |
+| M3: Contacts import and suppressions | In Progress | Done (Preview, Commit, CRUD) | Import UI ready         | Connect frontend to live API, tests        |
+| M4: Campaigns and sending engine     | Partial     | Models only                  | Campaign UI ready       | Queue, worker, transport adapter, send API |
+| M5: Webhooks and live tracking       | Not started | Model only                   | Counters stubbed        | Webhook handler, Redis pub/sub, SSE        |
+| M6: Overview and alerts              | Partial     | Missing                      | Dashboard ready         | Stats API, alerts, CSV export              |
 
 **Definition of done for every milestone**
 
@@ -129,33 +129,39 @@ TemplateDraft = { subject, previewText, page, blocks[] }
 
 ### 5.1 Server files
 
-| File                               | Responsibility                                        |
-| ---------------------------------- | ----------------------------------------------------- |
-| `services/contactImport.ts`        | Parse CSV and Excel, validate emails, find duplicates |
-| `repositories/contact.repo.ts`     | Bulk upsert by `(organizationId, email)`              |
-| `repositories/suppression.repo.ts` | Lookup of suppressed emails for an organization       |
-| `routes/contacts.routes.ts`        | Import preview and commit                             |
+| File                               | Status   | Responsibility                                                    |
+| ---------------------------------- | -------- | ----------------------------------------------------------------- |
+| `schemas/contact.schema.ts`        | **Done** | Zod schemas for contacts, import commit, suppressions, pagination |
+| `services/contactImport.ts`        | **Done** | Parse CSV/Excel via `xlsx`, validate emails, find duplicates      |
+| `repositories/contact.repo.ts`     | **Done** | Bulk upsert by `(organizationId, email)` & List creation          |
+| `repositories/suppression.repo.ts` | **Done** | Lookup of suppressed emails for org & AuditLog recording          |
+| `routes/contacts.routes.ts`        | **Done** | Import preview & commit, contacts CRUD, suppressions CRUD         |
 
 ### 5.2 Endpoints
 
-- [ ] `POST /api/orgs/:orgId/contacts/import/preview` (multipart file, no writes)
-- [ ] `POST /api/orgs/:orgId/contacts/import` (commit a validated set of rows)
+- [x] `POST /api/orgs/:orgId/contacts/import/preview` (multipart file upload, 5 MB limit, returns preview counts with zero writes)
+- [x] `POST /api/orgs/:orgId/contacts/import` (commit validated rows via bulkWrite with `skip` or `update` duplicates handling)
+- [x] `GET /api/orgs/:orgId/contacts` (paginated contact list with search & list filtering)
+- [x] `POST /api/orgs/:orgId/contacts` (create single contact)
+- [x] `GET /api/orgs/:orgId/contacts/lists` & `GET .../lists/:id` (audience lists)
+- [x] `GET /api/orgs/:orgId/contacts/suppressions` (list suppressions)
+- [x] `POST /api/orgs/:orgId/contacts/suppressions` & `DELETE .../suppressions/:email` (manage suppressions with AuditLog)
 
 ### 5.3 Import rules
 
-- Read only the first sheet of an `.xlsx`, or the CSV content. Reject other file types.
-- Limit to 50,000 rows and 5 MB.
-- Find the email column by header name. Fall back to the first cell that contains `@`.
-- Put every other column into `customFields`.
-- Duplicates within the file are reported in the preview and counted once on commit.
-- Emails on the suppression list are reported as skipped.
-- Commit creates the contacts with `bulkWrite` and one `upsert` per row, then creates a `List` with the contact IDs.
-- Never parse formulas. Read the stored values only.
+- [x] Read only the first sheet of an `.xlsx`, or the CSV content. Reject other file types.
+- [x] Limit to 50,000 rows and 5 MB.
+- [x] Find the email column by header name. Fall back to the first cell that contains `@`.
+- [x] Put every other column into `customFields`.
+- [x] Duplicates within the file are reported in the preview and counted once on commit.
+- [x] Emails on the suppression list are reported as skipped.
+- [x] Commit creates the contacts with `bulkWrite` and one `upsert` per row, then creates a `List` with the contact IDs.
+- [x] Never parse formulas. Read the stored values only.
 
 ### 5.4 Suppression
 
-- Campaign estimate and send both filter out suppressed emails in one query, not in the frontend.
-- A suppression can be added or removed by the owner. Each change writes an `AuditLog` entry.
+- [x] Suppressed emails are excluded at query time using `$in` lookups, never in the frontend.
+- [x] Suppressions can be added or removed by the owner. Each change writes an `AuditLog` entry.
 
 ### 5.5 Frontend
 
