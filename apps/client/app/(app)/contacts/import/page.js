@@ -1,298 +1,194 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
-import { Badge, Button, Card, Field, PageHeader, Segmented, Select, Table, Td, Th, Toast, cx, fmt } from "@/components/ui";
-import { contacts, lists } from "@/lib/mock";
+import { Badge, Button, Card, Field, Input, PageHeader, Segmented, Select, Table, Td, Th, fmt } from "@/components/ui";
+import { api } from "@/lib/api";
+import { useWorkspace, workspaceRequest } from "@/lib/workspace-api";
 
-const SAMPLE = `email,name,college,ticket_id
-riya.sen@example.test,Riya Sen,DTU,RF-0501
-kabir.iyer0@example.test,Kabir Iyer,IIT Delhi,RF-0502
-not-an-email,Dev Malhotra,NSUT,RF-0503
-meera.kapoor@example.test,,Ashoka University,RF-0504
-aarav.sharma0@example.test,Aarav Sharma,Rishihood University,RF-0505
-riya.sen@example.test,Riya Sen,DTU,RF-0506
-ananya.rao@example.test,Ananya Rao,Jamia Millia,RF-0507
-sam@,Sam K,DTU,RF-0508`;
-
-// Small, quote-aware CSV parser — enough for the preview step.
-function parseCSV(text) {
-  const rows = [];
-  for (const line of text.trim().split(/\r?\n/)) {
-    const out = [];
-    let cur = "";
-    let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-      else if (ch === '"') inQ = !inQ;
-      else if (ch === "," && !inQ) { out.push(cur); cur = ""; }
-      else cur += ch;
-    }
-    out.push(cur);
-    rows.push(out.map((s) => s.trim()));
-  }
-  return rows;
-}
-
-function analyse(text) {
-  const [header, ...body] = parseCSV(text);
-  const cols = header.map((h) => h.toLowerCase());
-  const ei = cols.indexOf("email");
-  if (ei < 0) return { error: "We couldn't find an “email” column. Add one to the first row and try again." };
-  const existing = new Set(contacts.map((c) => c.email));
-  const seen = new Set();
-  const result = { cols, valid: [], invalid: [], duplicate: [] };
-  body.forEach((r, i) => {
-    const rec = Object.fromEntries(cols.map((c, j) => [c, r[j] ?? ""]));
-    const row = { line: i + 2, ...rec };
-    const email = rec.email.toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) result.invalid.push({ ...row, reason: "Not a valid email address" });
-    else if (seen.has(email)) result.duplicate.push({ ...row, reason: "Appears earlier in this file" });
-    else if (existing.has(email)) result.duplicate.push({ ...row, reason: "Already a contact" });
-    else {
-      seen.add(email);
-      result.valid.push({ ...row, warn: !rec.name ? "No name — will be skipped by templates that require it" : null });
-    }
-  });
-  return result;
-}
-
-const steps = ["Upload", "Review", "Import"];
+const sample = "email,name,college,ticket_id\nriya.sen@example.test,Riya Sen,DTU,RF-0501\nnot-an-email,Dev Malhotra,NSUT,RF-0503\nriya.sen@example.test,Riya Sen,DTU,RF-0506\nananya.rao@example.test,Ananya Rao,Jamia Millia,RF-0507";
+const categories = { valid: "Ready", invalid: "Invalid", duplicate: "Duplicates", suppressed: "Suppressed" };
 
 export default function ImportPage() {
-  const router = useRouter();
-  const input = useRef(null);
-  const [step, setStep] = useState(0);
-  const [fileName, setFileName] = useState("");
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [drag, setDrag] = useState(false);
+  const { workspace, error: workspaceError } = useWorkspace();
+  const fileInput = useRef(null);
+  const [file, setFile] = useState(null);
+  const [review, setReview] = useState(null);
+  const [result, setResult] = useState(null);
+  const [lists, setLists] = useState([]);
+  const [listId, setListId] = useState("");
+  const [listName, setListName] = useState("");
+  const [duplicateMode, setDuplicateMode] = useState("update");
   const [tab, setTab] = useState("valid");
-  const [listId, setListId] = useState(lists[0].id);
-  const [dupMode, setDupMode] = useState("update");
-  const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState("");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const requestId = useRef(null);
+  const committedOptions = useRef(null);
 
-  const load = (name, text) => {
-    setFileName(name);
-    const r = analyse(text);
-    if (r.error) { setError(r.error); return; }
+  useEffect(() => {
+    if (!workspace) return;
+    let active = true;
+    workspaceRequest(workspace, "/lists").then(
+      (data) => { if (active) setLists(data); },
+      (error) => { if (active) setError(error.message); },
+    );
+    return () => { active = false; };
+  }, [workspace]);
+
+  function importPath(suffix, filename, options = {}) {
+    return `/contacts/import${suffix}?${new URLSearchParams({ filename, ...options })}`;
+  }
+
+  function uploadBody(source) {
+    return new Blob([source], { type: "application/octet-stream" });
+  }
+
+  async function preview(source) {
+    if (!source || busy || !workspace) return;
     setError("");
-    setData(r);
-    setTab(r.invalid.length ? "invalid" : "valid");
-    setStep(1);
-  };
-  const onFile = (f) => {
-    if (!f) return;
-    if (!/\.csv$/i.test(f.name)) {
-      setError(/\.xlsx$/i.test(f.name) ? "Excel files are parsed on the server — that arrives with the contacts API. Export as CSV for now." : "Upload a .csv or .xlsx file.");
+    if (!/\.(csv|xlsx)$/i.test(source.name) || source.size > 5 * 1024 * 1024) {
+      setError("Choose a CSV or XLSX file up to 5 MB.");
       return;
     }
-    f.text().then((t) => load(f.name, t));
-  };
+    setBusy("preview");
+    try {
+      const data = await workspaceRequest(workspace, importPath("/preview", source.name), {
+        method: "POST", body: uploadBody(source),
+      });
+      requestId.current = crypto.randomUUID();
+      committedOptions.current = null;
+      setFile(source);
+      setListName(source.name.replace(/\.[^.]+$/, "").slice(0, 100));
+      setReview(data);
+      setTab(data.counts.valid ? "valid" : data.counts.invalid ? "invalid" : data.counts.suppressed ? "suppressed" : "duplicate");
+    } catch (error) { setError(error.message); }
+    finally { setBusy(""); }
+  }
 
-  const current = data?.[tab] ?? [];
-  const extraCols = data ? data.cols.filter((c) => c !== "email" && c !== "name") : [];
+  async function commit(event) {
+    event.preventDefault();
+    if (!file || !review.counts.valid || busy || (!listId && !listName.trim())) return;
+    setBusy("import");
+    setError("");
+    try {
+      const target = listId ? { listId } : { listName: listName.trim() };
+      const options = JSON.stringify({ ...target, duplicateMode });
+      if (committedOptions.current && committedOptions.current !== options) requestId.current = crypto.randomUUID();
+      committedOptions.current = options;
+      const data = await workspaceRequest(workspace, importPath("", file.name, {
+        ...target, requestId: requestId.current, duplicateMode,
+      }), { method: "POST", body: uploadBody(file) });
+      setResult(data);
+    } catch (error) { setError(error.message); }
+    finally { setBusy(""); }
+  }
+
+  async function downloadIssues() {
+    if (busy) return;
+    setBusy("download");
+    setError("");
+    try {
+      const path = importPath("/rejected", file.name);
+      const blob = await api(`/orgs/${workspace.org.id}${path}`, {
+        method: "POST", token: workspace.token, body: uploadBody(file), responseType: "blob",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "skipped-contacts.csv";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setError(error.message); }
+    finally { setBusy(""); }
+  }
+
+  const issueCount = review ? review.counts.invalid + review.counts.duplicate + review.counts.suppressed : 0;
 
   return (
     <>
-      <PageHeader
-        back={{ href: "/contacts", label: "Contacts" }}
-        title="Import contacts"
-        description="Upload a CSV. You'll see exactly what will be imported before anything is saved."
-      />
-
-      {/* Stepper */}
-      <ol className="mb-10 flex items-center gap-2" aria-label="Import progress">
-        {steps.map((s, i) => (
-          <li key={s} className="flex items-center gap-2">
-            <span
-              aria-current={i === step ? "step" : undefined}
-              className={cx(
-                "inline-flex h-7 items-center gap-2 rounded-full pl-1 pr-3 text-[14px] font-medium",
-                i === step ? "bg-primary text-on-primary" : i < step ? "bg-success-soft text-success" : "bg-surface-2 text-subtle",
-              )}
-            >
-              <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[12px]", i === step ? "bg-on-primary/15" : "")}>
-                {i < step ? <Icon.Check size={12} /> : i + 1}
-              </span>
-              {s}
-            </span>
-            {i < steps.length - 1 && <span className="h-px w-6 bg-line-strong" aria-hidden="true" />}
-          </li>
-        ))}
-      </ol>
-
-      {step === 0 && (
-        <Card className="p-5 sm:p-8 animate-fade-up">
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={(e) => { e.preventDefault(); setDrag(false); onFile(e.dataTransfer.files[0]); }}
-            className={cx(
-              "flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors duration-150",
-              drag ? "border-accent bg-accent-soft/50" : "border-line-strong",
-            )}
-          >
-            <span className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-surface-2 text-muted"><Icon.Upload size={20} /></span>
-            <h2 className="text-[17px] font-semibold">Drop your file here</h2>
-            <p className="mt-1 text-[14px] text-muted">CSV or Excel, up to 10 MB. The first row must be column names, including “email”.</p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              <Button onClick={() => input.current?.click()}>Choose file</Button>
-              <Button variant="secondary" onClick={() => load("sample-attendees.csv", SAMPLE)}>Try a sample file</Button>
+      <PageHeader back={{ href: "/contacts", label: "Contacts" }} title="Import contacts"
+        description="Upload a CSV or Excel file, review the rows, and save them to an audience." />
+      {(error || workspaceError) && <p className="mb-5 text-danger" role="alert">{error || workspaceError.message}</p>}
+      {workspace === null || workspaceError?.status === 401 ? <Button href="/login">Sign in to import contacts</Button>
+        : workspace === undefined ? workspaceError ? null : <p role="status">Loading your organization…</p>
+        : result ? (
+          <Card className="mx-auto max-w-xl p-7 text-center">
+            <Icon.CheckCircle className="mx-auto mb-3 text-success" size={28} />
+            <h2 className="display text-3xl">Audience saved</h2>
+            <p className="mt-3 text-muted">{fmt.n(result.included)} contacts included in {result.list.name}. {fmt.n(result.skipped)} file rows skipped.</p>
+            <p className="mt-2 text-sm text-muted">{fmt.n(result.added)} new · {fmt.n(result.updated)} existing updated</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <Button href={`/contacts?list=${result.list.id}&org=${workspace.org.id}`}>View audience</Button>
+              {issueCount > 0 && <Button variant="secondary" loading={busy === "download"} disabled={!!busy} onClick={downloadIssues}>Download skipped rows</Button>}
             </div>
-            <input ref={input} type="file" accept=".csv,.xlsx" className="sr-only" onChange={(e) => onFile(e.target.files[0])} aria-label="Choose a CSV file" />
-            {error && (
-              <p role="alert" className="mt-5 flex items-center gap-2 rounded-lg bg-danger-soft px-3 py-2 text-[14px] text-danger">
-                <Icon.Alert size={14} /> {error}
-              </p>
-            )}
-          </div>
-          <div className="mt-6 grid gap-4 text-[14px] text-muted sm:grid-cols-3">
-            {[
-              ["Nothing is saved yet", "Review comes first. Cancel any time."],
-              ["Extra columns become variables", "e.g. a “college” column becomes {{college}}."],
-              ["Suppressions still apply", "Re-importing an unsubscribed address won't re-subscribe it."],
-            ].map(([t, d]) => (
-              <div key={t} className="flex gap-2.5">
-                <Icon.CheckCircle size={15} className="mt-0.5 shrink-0 text-success" />
-                <div><div className="font-medium text-fg">{t}</div>{d}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {step === 1 && data && (
-        <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px] animate-fade-up">
-          <Card>
-            <div className="flex flex-col gap-3 border-b border-line px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-              <Segmented
-                label="Rows"
-                size="sm"
-                value={tab}
-                onChange={setTab}
-                options={[
-                  { value: "valid", label: "Ready", count: data.valid.length },
-                  { value: "invalid", label: "Invalid", count: data.invalid.length },
-                  { value: "duplicate", label: "Duplicates", count: data.duplicate.length },
-                ]}
-              />
-              <span className="flex items-center gap-1.5 text-[14px] text-subtle"><Icon.File size={13} /> {fileName}</span>
-            </div>
-            {current.length === 0 ? (
-              <div className="px-5 py-12 text-center text-[14px] text-muted">
-                <Icon.CheckCircle size={20} className="mx-auto mb-2 text-success" />
-                Nothing here — {tab === "invalid" ? "every row has a valid email." : "no duplicates found."}
-              </div>
-            ) : (
-              <Table>
-                <thead>
-                  <tr>
-                    <Th className="w-14">Row</Th>
-                    <Th>Email</Th>
-                    <Th className="hidden sm:table-cell">Name</Th>
-                    <Th>{tab === "valid" ? "Fields" : "Reason"}</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {current.map((r) => (
-                    <tr key={r.line}>
-                      <Td className="tabular text-subtle">{r.line}</Td>
-                      <Td className={cx("font-mono text-[14px]", tab === "invalid" && "text-danger")}>{r.email || "—"}</Td>
-                      <Td className="hidden sm:table-cell">{r.name || <span className="text-subtle">—</span>}</Td>
-                      <Td>
-                        {tab === "valid" ? (
-                          r.warn ? (
-                            <span className="inline-flex items-center gap-1 text-[14px] text-warning"><Icon.Alert size={13} /> No name</span>
-                          ) : (
-                            <span className="text-[14px] text-subtle">{extraCols.map((c) => r[c]).filter(Boolean).join(" · ")}</span>
-                          )
-                        ) : (
-                          <span className="text-[14px] text-muted">{r.reason}</span>
-                        )}
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            )}
           </Card>
-
-          <aside className="lg:sticky lg:top-8">
-            <Card className="overflow-hidden">
-              <div className="border-b border-line px-7 py-6">
-                <div className="text-[14px] text-subtle">Will be imported</div>
-                <div className="tabular text-[36px] font-semibold leading-tight tracking-tight">{fmt.n(data.valid.length)}</div>
-                <div className="mt-1 text-[14px] text-muted">
-                  {data.invalid.length} invalid · {data.duplicate.length} duplicates skipped
-                </div>
+        ) : !review ? (
+          <Card className="p-5 sm:p-8">
+            <div onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(event) => { event.preventDefault(); setDragging(false); preview(event.dataTransfer.files[0]); }}
+              className={`rounded-xl border-2 border-dashed p-8 text-center sm:p-14 ${dragging ? "border-accent bg-accent-soft" : "border-line-strong"}`}>
+              <Icon.Upload className="mx-auto mb-4 text-muted" size={23} />
+              <h2 className="display text-2xl">Choose a contact file</h2>
+              <p className="mx-auto mt-2 max-w-md text-muted">CSV or XLSX, up to 5 MB and 50,000 rows. Include headers and an email column. Excel imports the first sheet.</p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <Button loading={busy === "preview"} onClick={() => fileInput.current?.click()}>Choose file</Button>
+                <Button variant="secondary" disabled={!!busy} onClick={() => preview(new File([sample], "sample-attendees.csv"))}>Try a sample file</Button>
               </div>
-              <div className="flex flex-col gap-4 px-7 py-6">
-                <Field label="Add to list" htmlFor="imp-list">
-                  <Select id="imp-list" value={listId} onChange={(e) => setListId(e.target.value)}>
-                    {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              <input ref={fileInput} type="file" accept=".csv,.xlsx" hidden onChange={(event) => { preview(event.target.files[0]); event.target.value = ""; }} />
+            </div>
+          </Card>
+        ) : (
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <Card className="min-w-0">
+              <div className="space-y-3 border-b border-line p-5">
+                <p className="break-all text-sm font-medium text-muted">{file.name}</p>
+                <Segmented label="Review rows" size="sm" value={tab} onChange={setTab}
+                  options={Object.entries(categories).map(([value, label]) => ({ value, label, count: review.counts[value] }))} />
+              </div>
+              {review[tab].length ? (
+                <>
+                  <Table>
+                    <thead><tr><Th>Row</Th><Th>Email</Th><Th>Name</Th><Th>{tab === "valid" ? "Contact" : "Reason"}</Th></tr></thead>
+                    <tbody>
+                      {review[tab].map((row) => <tr key={row.line}>
+                        <Td>{row.line}</Td><Td>{row.email || "—"}</Td><Td>{row.name || "—"}</Td>
+                        <Td>{row.reason ?? (row.existing ? "Already in contacts" : "New")}</Td>
+                      </tr>)}
+                    </tbody>
+                  </Table>
+                  {review.counts[tab] > review[tab].length && <p className="p-5 text-sm text-muted">Showing the first {review[tab].length} rows in this group.</p>}
+                </>
+              ) : <p className="p-6 text-muted">No {categories[tab].toLowerCase()} rows.</p>}
+              {issueCount > 0 && <div className="border-t border-line p-4"><Button size="sm" variant="secondary" loading={busy === "download"} disabled={!!busy} onClick={downloadIssues}><Icon.Download size={15} /> Download skipped rows</Button></div>}
+            </Card>
+            <Card className="p-6">
+              <form onSubmit={commit} className="flex flex-col gap-4">
+                <div>
+                  <h2 className="display text-2xl">{fmt.n(review.counts.valid)} ready</h2>
+                  <p className="mt-1 text-sm text-muted">{fmt.n(review.counts.existing)} already in contacts · {fmt.n(issueCount)} skipped</p>
+                </div>
+                <Field label="Audience" htmlFor="import-list">
+                  <Select id="import-list" value={listId} onChange={(event) => setListId(event.target.value)}>
+                    <option value="">Create a new list</option>
+                    {lists.map((list) => <option key={list.id} value={list.id}>{list.name}</option>)}
                   </Select>
                 </Field>
-                <Field label="If a contact already exists">
-                  <Segmented
-                    label="Duplicate handling"
-                    size="sm"
-                    value={dupMode}
-                    onChange={setDupMode}
-                    options={[{ value: "update", label: "Update fields" }, { value: "skip", label: "Skip" }]}
-                  />
+                {!listId && <Field label="List name" htmlFor="import-name"><Input id="import-name" maxLength={100} required value={listName} onChange={(event) => setListName(event.target.value)} /></Field>}
+                <Field label="Existing contacts" htmlFor="import-duplicates" hint="Both options add existing contacts to this list.">
+                  <Select id="import-duplicates" value={duplicateMode} onChange={(event) => setDuplicateMode(event.target.value)}>
+                    <option value="update">Update fields from file</option>
+                    <option value="skip">Keep saved details</option>
+                  </Select>
                 </Field>
-                {extraCols.length > 0 && (
-                  <div>
-                    <div className="mb-1.5 text-[14px] font-medium">New variables</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {extraCols.map((c) => <Badge key={c} tone="accent"><span className="font-mono">{`{{${c}}}`}</span></Badge>)}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2 border-t border-line bg-surface-2/50 px-7 py-6">
-                <Button
-                  size="lg"
-                  className="w-full"
-                  loading={busy}
-                  disabled={!data.valid.length}
-                  onClick={() => {
-                    setBusy(true);
-                    setTimeout(() => { setBusy(false); setStep(2); }, 800);
-                  }}
-                >
-                  Import {fmt.n(data.valid.length)} contacts
-                </Button>
-                <Button variant="ghost" className="w-full" onClick={() => { setStep(0); setData(null); }}>
-                  Choose a different file
-                </Button>
-              </div>
+                {review.fields.length > 0 && <div><p className="mb-2 text-sm text-muted">Fields saved with contacts</p><div className="flex flex-wrap gap-2">{review.fields.map((field) => <Badge key={field}>{field}</Badge>)}</div></div>}
+                <Button type="submit" loading={busy === "import"} disabled={!!busy || !review.counts.valid}>Import contacts</Button>
+                <Button type="button" variant="ghost" disabled={!!busy} onClick={() => { setReview(null); setFile(null); setError(""); }}>Choose a different file</Button>
+              </form>
             </Card>
-          </aside>
-        </div>
-      )}
-
-      {step === 2 && data && (
-        <Card className="mx-auto max-w-lg p-8 text-center animate-fade-up">
-          <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-success-soft text-success"><Icon.Check size={22} /></span>
-          <h2 className="text-[20px] font-semibold">{fmt.n(data.valid.length)} contacts imported</h2>
-          <p className="mt-1 text-[15px] text-muted">
-            Added to {lists.find((l) => l.id === listId).name}. {data.invalid.length + data.duplicate.length} rows were skipped.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Button href="/campaigns/new"><Icon.Send size={14} /> Start a campaign</Button>
-            <Button variant="secondary" onClick={() => setToast("Skipped rows downloaded as CSV")}>
-              <Icon.Download size={14} /> Download skipped rows
-            </Button>
-            <Button variant="ghost" onClick={() => router.push("/contacts")}>View contacts</Button>
           </div>
-        </Card>
-      )}
-      <Toast message={toast} onDone={() => setToast("")} />
+        )}
     </>
   );
 }

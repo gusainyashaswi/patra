@@ -1,38 +1,5 @@
-import { useEffect, useState } from "react";
 import { api, API_URL } from "./api";
-
-export function useTemplateWorkspace() {
-  const [workspace, setWorkspace] = useState(undefined);
-  const [error, setError] = useState(null);
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      const token = localStorage.getItem("patra-token");
-      if (!token || token === "undefined") {
-        if (active) setWorkspace(null);
-        return;
-      }
-      try {
-        const { data } = await api("/orgs", { token });
-        if (!data.length) throw new Error("Your account has no organization.");
-        const requested = new URLSearchParams(location.search).get("org");
-        const org = requested ? data.find((item) => item.id === requested) : data[0];
-        if (!org) throw new Error("This organization is unavailable.");
-        if (active) setWorkspace({ token, org });
-      } catch (error) {
-        if (active) setError(error);
-      }
-    }
-    load();
-    return () => { active = false; };
-  }, []);
-  return { workspace, error };
-}
-
-export async function templateRequest(workspace, path, options) {
-  const { data } = await api(`/orgs/${workspace.org.id}${path}`, { ...options, token: workspace.token });
-  return data;
-}
+export { useWorkspace as useTemplateWorkspace, workspaceRequest as templateRequest } from "./workspace-api";
 
 export function draftContent({ name, subject, previewText, page, blocks }) {
   return { name, subject, previewText, page, blocks };
