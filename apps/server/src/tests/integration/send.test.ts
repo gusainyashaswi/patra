@@ -159,3 +159,33 @@ describe("Transport discovery", () => {
     expect(getActiveWorkers().has(getSendQueueName(ctx.transport.id))).toBe(true);
   });
 });
+
+describe("Campaign builder API", () => {
+  beforeAll(setupTestDb);
+  afterAll(teardownTestDb);
+  beforeEach(clearTestDb);
+
+  it("loads real options, estimates recipients, and saves a draft", async () => {
+    const ctx = await seedTestContext();
+    const base = `/api/orgs/${ctx.organization.id}/campaigns`;
+    const auth = `Bearer ${ctx.accessToken}`;
+    const options = await request(app).get(base + "/options").set("Authorization", auth);
+    expect(options.status).toBe(200);
+    expect(options.body.data.versions[0].id).toBe(ctx.templateVersion.id);
+    expect(options.body.data.senders[0].id).toBe(ctx.sender.id);
+    const body = {
+      name: "Real campaign", templateVersionId: ctx.templateVersion.id,
+      senderIdentityId: ctx.sender.id, listId: ctx.list.id,
+    };
+    const estimate = await request(app).post(base + "/estimate").set("Authorization", auth).send(body);
+    expect(estimate.status).toBe(200);
+    expect(estimate.body.data).toEqual({total: 3, suppressed: 0, missing: 1, eligible: 2});
+    const draft = await request(app).post(base).set("Authorization", auth).send(body);
+    expect(draft.status).toBe(201);
+    expect(draft.body.data.status).toBe("DRAFT");
+    const read = await request(app).get(base + "/" + draft.body.data.id).set("Authorization", auth);
+    expect(read.body.data.name).toBe("Real campaign");
+    const invalid = await request(app).post(base).set("Authorization", auth).send({ ...body, listId: "000000000000000000000000" });
+    expect(invalid.status).toBe(404);
+  });
+});

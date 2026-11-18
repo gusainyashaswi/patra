@@ -8,6 +8,11 @@ import { startSend } from "../services/send.service.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+import { validateCampaignLinks, estimateCampaign } from "../services/campaign-options.js";
+import { TemplateVersion } from "../models/template.model.js";
+import { SenderIdentity, Domain, MailTransport } from "../models/mailTransport.model.js";
+import { List } from "../models/audience.model.js";
+
 export const campaignRouter = Router({ mergeParams: true });
 campaignRouter.use(requirePermission("manage_campaigns"));
 
@@ -17,6 +22,25 @@ const createCampaignBody = z.object({
   senderIdentityId: objectId,
   listId: objectId,
 });
+
+campaignRouter.get("/options", asyncHandler(async (req, res) => {
+  const organizationId = req.user!.organizationId!;
+  const [versions, senders, lists] = await Promise.all([
+    TemplateVersion.find({ organizationId }).select("subject version templateId").sort({ createdAt: -1 }),
+    SenderIdentity.find({ organizationId }).select("displayName fromEmail domainId"),
+    List.find({ organizationId }).select("name"),
+  ]);
+  const transports = await MailTransport.distinct("_id", { organizationId, type: "RESEND", status: "VERIFIED" });
+  const domains = await Domain.find({ organizationId, verified: true, transportId: { $in: transports } });
+  const allowed = new Map(domains.map(domain => [domain.id, domain.name]));
+  const verifiedSenders = senders.filter(sender => allowed.get(String(sender.domainId)) === sender.fromEmail.split("@").at(-1));
+  res.json({ data: { versions, senders: verifiedSenders, lists } });
+}));
+
+campaignRouter.post("/estimate", asyncHandler(async (req, res) => {
+  const input = createCampaignBody.parse(req.body);
+  res.json({ data: await estimateCampaign(req.user!.organizationId!, input) });
+}));
 
 campaignRouter.get(
   "/",
@@ -33,6 +57,7 @@ campaignRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const input = createCampaignBody.parse(req.body);
+    await validateCampaignLinks(req.user!.organizationId!, input);
     const campaign = await Campaign.create({
       ...input,
       organizationId: req.user!.organizationId,
@@ -133,6 +158,7 @@ campaignRouter.get(
       organizationId: new Types.ObjectId(orgId),
     };
 
+    if (!(await Campaign.exists({ _id: id, organizationId: orgId }))) throw new ApiError(404, "Campaign not found");
     if (status) {
       filter.status = status;
     }
