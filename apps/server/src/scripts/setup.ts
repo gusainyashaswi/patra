@@ -10,9 +10,11 @@ async function main() {
   if (process.argv.includes("--migrate")) {
     const migrations = mongoose.connection.collection("migrations");
     // createIndexes only adds declared indexes; it never drops existing indexes.
-    if (!await migrations.findOne({ name: "001-mvp-indexes" })) {
+    for (const name of ["001-mvp-indexes", "002-transport-default-index"]) {
+    if (!await migrations.findOne({ name })) {
       for (const model of Object.values(mongoose.models)) await model.createIndexes();
-      await migrations.updateOne({ name: "001-mvp-indexes" }, { $setOnInsert: { appliedAt: new Date() } }, { upsert: true });
+      await migrations.updateOne({ name }, { $setOnInsert: { appliedAt: new Date() } }, { upsert: true });
+    }
     }
     console.log("Database migrations applied");
     return;

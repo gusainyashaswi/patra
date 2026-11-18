@@ -39,6 +39,7 @@ const mailTransportSchema = new Schema<IMailTransport>(
   schemaOptions,
 );
 
+mailTransportSchema.index({ organizationId: 1, isDefault: 1 }, { unique: true, partialFilterExpression: { isDefault: true } });
 export const MailTransport = model<IMailTransport>("MailTransport", mailTransportSchema);
 
 export interface IDomain {

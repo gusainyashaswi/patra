@@ -10,6 +10,7 @@ export function useCampaignStream(workspace, id) {
     let stopped = false;
     let timer;
     let idle;
+    let change;
     let controller;
     let delay = 1000;
     async function connect() {
@@ -34,7 +35,9 @@ export function useCampaignStream(workspace, id) {
             while ((boundary = pending.indexOf("\n\n")) !== -1) {
               const event = pending.slice(0, boundary);
               pending = pending.slice(boundary + 2);
-              if (/^event: (snapshot|change)$/m.test(event)) setRevision(value => value + 1);
+              if (/^event: (snapshot|change)$/m.test(event) && !change) {
+                change = setTimeout(() => { change = null; if (!stopped) setRevision(value => value + 1); }, 250);
+              }
             }
           }
         } finally { await reader.cancel().catch(() => {}); }
@@ -49,7 +52,7 @@ export function useCampaignStream(workspace, id) {
       }
     }
     connect();
-    return () => { stopped = true; clearTimeout(timer); clearTimeout(idle); controller?.abort(); };
+    return () => { stopped = true; clearTimeout(timer); clearTimeout(idle); clearTimeout(change); controller?.abort(); };
   }, [workspace, id]);
   return { revision, connected };
 }

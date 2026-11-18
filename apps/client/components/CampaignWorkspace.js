@@ -160,7 +160,7 @@ function CampaignContent({ workspace, id, create }) {
             {data.status === "DRAFT" && <Button loading={busy} onClick={review}>Review send</Button>}
             {["QUEUED", "SENDING"].includes(data.status) && <Button loading={busy} onClick={() => action("pause")}>Pause</Button>}
             {data.status === "PAUSED" && <Button loading={busy} onClick={() => action("resume")}>Resume</Button>}
-            <span className="text-sm text-muted">Refreshes every 4 seconds</span>
+            <span className="text-sm text-muted">{connected ? "Live updates connected" : "Reconnecting · refreshing every 4 seconds"}</span>
           </div>
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
             {Object.entries(data.counters).map(([key, value]) => <Card key={key} className="p-4"><p className="text-sm text-muted">{key.replace(/Count$/, "").replace("totalRecipients", "Recipients")}</p><p className="mt-2 text-3xl font-semibold">{value}</p></Card>)}

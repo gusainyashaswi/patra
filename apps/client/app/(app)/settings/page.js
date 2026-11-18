@@ -56,8 +56,9 @@ function TransportForm({ create, toast }) {
     setError("");
     setSaving(true);
     try {
-      await create({ name: form.name.trim(), type: "RESEND", apiKey: form.key.trim() });
-      close();
+      await create({ name: form.name.trim(), type: "RESEND", apiKey: form.key.trim(), ratePerSecond: Number(form.ratePerSecond ?? 2), dailyLimit: Number(form.dailyLimit ?? 100) });
+      setOpen(false);
+      setForm(EMPTY_TRANSPORT);
       toast("Transport saved.");
     } catch (err) {
       setError(err.message);
@@ -77,6 +78,12 @@ function TransportForm({ create, toast }) {
           </Field>
           <Field label="API key" htmlFor="tr-key" hint="Credentials are encrypted before storage.">
             <Input id="tr-key" type="password" autoComplete="off" required pattern="re_.+" value={form.key} onChange={(event) => setForm({ ...form, key: event.target.value })} />
+          </Field>
+          <Field label="Emails per second" htmlFor="tr-rate" hint="Match your provider’s sending limit.">
+            <Input id="tr-rate" type="number" min="1" max="100" required value={form.ratePerSecond ?? 2} onChange={event => setForm({ ...form, ratePerSecond: event.target.value })} />
+          </Field>
+          <Field label="Daily email limit" htmlFor="tr-daily" hint="UTC days. Remaining emails wait until the next day.">
+            <Input id="tr-daily" type="number" min="1" max="1000000" required value={form.dailyLimit ?? 100} onChange={event => setForm({ ...form, dailyLimit: event.target.value })} />
           </Field>
           {error && <p role="alert" className="text-danger">{error}</p>}
         </form>

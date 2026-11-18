@@ -28,4 +28,10 @@ describe("Hashed login sessions", () => {
     expect((await request(app).post("/api/auth/register").send({ email: "unwanted@example.test", password: "Password123!" })).status).toBe(403);
     expect(await User.countDocuments()).toBe(0);
   });
+  it("rate-limits repeated login failures", async () => {
+    let status = 0;
+    for (let i = 0; i < 11; i++) status = (await request(app).post("/api/auth/login").send({ email: "absent@example.test", password: "invalid" })).status;
+    expect(status).toBe(429);
+  });
+
 });

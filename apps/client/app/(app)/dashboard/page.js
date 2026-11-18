@@ -11,6 +11,8 @@ import { useWorkspace, workspaceRequest } from "@/lib/workspace-api";
   only what you need at a glance lives here; detail lives on Campaigns and Settings.
 */
 
+const sum = values => values.reduce((total, value) => total + value, 0);
+
 /* ---------- Pieces ---------- */
 
 function Panel({ title, action, children, className }) {

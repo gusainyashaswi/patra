@@ -15,9 +15,9 @@ export async function create(orgId: string, input: CreateTransportBody, userId?:
     name: input.name,
     type: input.type,
     credentialsEncrypted: encrypt(input.apiKey),
-    ratePerSecond: 2,
-    dailyLimit: undefined,
-    isDefault: false,
+    ratePerSecond: input.ratePerSecond,
+    dailyLimit: input.dailyLimit,
+    isDefault: !await MailTransport.exists({ organizationId: orgId, isDefault: true }).session(session),
     status: "UNVERIFIED",
   }], { session });
   await audit(orgId, userId, "transport.create", "transport", created.id, session);

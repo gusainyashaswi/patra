@@ -31,15 +31,18 @@ export async function markRecipientFailed(
   campaignId: string,
   errorMsg: string,
 ): Promise<void> {
+  const scope = await CampaignRecipient.findOne({ _id: recipientId, campaignId }).select("organizationId");
+  if (!scope) return;
+  const organizationId = scope.organizationId;
   await mongoose.connection.transaction(async (session) => {
     const updateRes = await CampaignRecipient.updateOne(
-      { _id: recipientId, campaignId, status: "QUEUED" },
+      { _id: recipientId, campaignId, organizationId, status: "QUEUED" },
       { $set: { status: "FAILED", error: errorMsg, failedAt: new Date() } },
       { session },
     );
     if (updateRes.modifiedCount === 1) {
       await Campaign.updateOne(
-        { _id: campaignId },
+        { _id: campaignId, organizationId },
         { $inc: { "counters.failedCount": 1 } },
         { session },
       );
@@ -58,6 +61,7 @@ export async function sendEmailProcessor(
   // 1. Load recipient
   const recipient = await CampaignRecipient.findOne({
     _id: recipientId,
+    campaignId,
     organizationId,
   });
 
@@ -155,7 +159,7 @@ export async function sendEmailProcessor(
   if (!renderResult.success) {
     // Missing required variables -> Mark SKIPPED
     await CampaignRecipient.updateOne(
-      { _id: recipientId, status: "QUEUED" },
+      { _id: recipientId, organizationId, campaignId, status: "QUEUED" },
       { $set: { status: "SKIPPED", error: renderResult.error } },
     );
     await finishCampaign(organizationId, campaignId);

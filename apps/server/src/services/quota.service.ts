@@ -21,7 +21,7 @@ export async function reserveQuota(organizationId: string, transportId: string, 
     reserved = false;
     const recipient = await CampaignRecipient.findOne({ _id: recipientId, organizationId }).session(session);
     if (!recipient) return;
-    if (recipient.quotaDay) { reserved = true; return; }
+    if (recipient.quotaDay === day) { reserved = true; return; }
     const result = await DailyQuota.updateOne({ ...scope, used: { $lt: limit } }, { $inc: { used: 1 } }, { session });
     if (!result.modifiedCount) return;
     recipient.quotaDay = day;

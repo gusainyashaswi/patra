@@ -32,7 +32,7 @@ export const connectDB = async (): Promise<typeof mongoose | null> => {
       connectionUri = queryPart ? `${baseWithDb}?${queryPart}` : baseWithDb;
     }
 
-    const connectionInstance = await mongoose.connect(connectionUri);
+    const connectionInstance = await mongoose.connect(connectionUri, { autoIndex: process.env.NODE_ENV !== "production" });
     console.log(
       `✅ MongoDB connected successfully! Host: ${connectionInstance.connection.host}, DB: ${connectionInstance.connection.name}`,
     );
