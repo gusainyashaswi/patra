@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Patra dashboard
 
-## Getting Started
+The Patra dashboard is a Next.js 16 application for managing organizations, contacts, templates, sender identities, and campaigns. It uses the Express API in `../server` and relies on HTTP-only cookie sessions rather than browser-stored access tokens.
 
-First, run the development server:
+## Run locally
+
+From the repository root, install workspace dependencies once:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Start the API first, then the dashboard:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run dev --workspace server
+npm run dev --workspace client
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open `http://localhost:3000`.
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+The client defaults to `http://localhost:5001/api`. To point it at another API, set this value before starting Next.js:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+NEXT_PUBLIC_API_URL=https://api.example.com/api
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The API must permit the dashboard origin through `CORS_ORIGIN` and support credentialed requests. Authentication routes set HTTP-only cookies; browser code must not store access or refresh tokens.
 
-## Deploy on Vercel
+## Commands
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Run these commands from `apps/client`, or add `--workspace client` at the repository root:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev      # Start the Next.js development server
+npm run build    # Create the production build
+npm run start    # Serve the production build
+npm run lint     # Run ESLint
+npm run test     # Run Node test files
+```
+
+## Main areas
+
+- `app/login` — sign-in screen.
+- `app/(app)` — authenticated dashboard routes.
+- `components` — application shell, rendering, and shared UI components.
+- `lib/api.js` — credentialed API client and API base URL configuration.
+- `lib/*-api.js` — resource-specific API helpers.
+
+## Production notes
+
+Build the client with the production `NEXT_PUBLIC_API_URL`, serve it over HTTPS, and configure the server's cookie and CORS settings for the deployed dashboard origin. The API and worker deployment requirements are documented in the repository [README](../../README.md).

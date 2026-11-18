@@ -5,7 +5,7 @@ import {
   PermanentError,
 } from "./transport.interface.js";
 import { ResendTransport } from "./resend.transport.js";
-import { FakeMailTransport, fakeTransport } from "./fake.transport.js";
+import { fakeTransport } from "./fake.transport.js";
 
 export {
   type IMailTransportAdapter,
@@ -28,6 +28,10 @@ export function clearTransportCache(): void {
   transportCache.clear();
 }
 
+export function invalidateTransportCache(transportId: string): void {
+  transportCache.delete(transportId);
+}
+
 export async function getOrBuildTransport(
   transportId: string,
   organizationId: string,
@@ -40,6 +44,10 @@ export async function getOrBuildTransport(
     return fakeTransport;
   }
 
+  // The cache is authoritative until a transport mutation explicitly invalidates it.
+  const cached = transportCache.get(transportId);
+  if (cached) return cached;
+
   const transport = await MailTransport.findOne({
     _id: transportId,
     organizationId,
@@ -50,25 +58,10 @@ export async function getOrBuildTransport(
   }
 
   if (transport.status !== "VERIFIED") throw new PermanentError("Transport is not verified");
-  const cached = transportCache.get(transportId);
-  if (cached) return cached;
-  let adapter: IMailTransportAdapter;
-
-  switch (transport.type) {
-    case "RESEND": {
-      if (!transport.credentialsEncrypted) {
-        throw new PermanentError("Resend transport has no encrypted credentials");
-      }
-      const apiKey = decrypt(transport.credentialsEncrypted);
-      adapter = new ResendTransport(apiKey);
-      break;
-    }
-    case "SMTP":
-    default: {
-      // For testing or unsupported types, fall back to fakeTransport if configured
-      throw new PermanentError("This transport type is not supported for campaign delivery");
-    }
+  if (!transport.credentialsEncrypted) {
+    throw new PermanentError("Resend transport has no encrypted credentials");
   }
+  const adapter: IMailTransportAdapter = new ResendTransport(decrypt(transport.credentialsEncrypted));
 
   transportCache.set(transportId, adapter);
   return adapter;

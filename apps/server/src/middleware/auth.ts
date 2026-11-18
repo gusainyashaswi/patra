@@ -1,24 +1,22 @@
-import { env } from "../config/env.js";
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { User, Membership, Role } from "../models/identity.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { env } from "../config/env.js";
 
 export const verifyJwt = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
   try {
     const token =
-      req.header("Authorization")?.replace("Bearer ", "") ||
       req.cookies?.accessToken ||
+      req.header("Authorization")?.replace("Bearer ", "") ||
       req.headers.authorization?.replace("Bearer ", "");
 
     if (!token) {
       throw new ApiError(401, "Unauthorized Request - No token provided");
     }
 
-    const secret = env.ACCESS_TOKEN_SECRET;
-
-    const decodedToken = jwt.verify(token, secret) as {
+    const decodedToken = jwt.verify(token, env.ACCESS_TOKEN_SECRET) as {
       _id?: string;
       id?: string;
       sub?: string;
@@ -32,7 +30,7 @@ export const verifyJwt = asyncHandler(async (req: Request, _res: Response, next:
       throw new ApiError(401, "Invalid Access Token payload");
     }
 
-    const user = await User.findById(userId).select("-password -refreshToken");
+    const user = await User.findById(userId).select("-password");
 
     if (!user) {
       throw new ApiError(401, "Invalid Access Token - User not found");

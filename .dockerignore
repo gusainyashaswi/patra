@@ -7,3 +7,5 @@
 *.log
 PROJECT_CONTEXT.md
 PROJECT_STATUS_AND_DB_ANALYSIS.md
+node_modules
+outputs

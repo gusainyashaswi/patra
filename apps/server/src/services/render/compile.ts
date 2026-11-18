@@ -7,7 +7,28 @@ const samples: Record<string, string> = {
 const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[char]!));
-const tokens = /\{\{\s*(\w+)\s*\}\}/g;
+const tokens = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+const variableCandidates = /\{\{([^{}]*)\}\}/g;
+const variableName = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+export function extractTemplateVariables(values: string[]): string[] {
+  const variables = new Set<string>();
+
+  for (const value of values) {
+    for (const match of value.matchAll(variableCandidates)) {
+      const name = match[1].trim();
+      if (!variableName.test(name)) {
+        throw new ApiError(
+          400,
+          `Invalid variable name "${name}". Use letters, numbers, and underscores; names cannot start with a number.`,
+        );
+      }
+      variables.add(name);
+    }
+  }
+
+  return [...variables];
+}
 
 function link(value: string, sample: boolean) {
   try {
@@ -27,9 +48,7 @@ export function compileTemplate(draft: Draft, sample = false) {
     if (block.type === "button") texts.push(block.label);
     if (block.type === "image") texts.push(block.alt);
   }
-  const variables = [...new Set(texts.flatMap((value) => [...value.matchAll(tokens)].map((match) => match[1])))];
-  const unknown = variables.filter((key) => !Object.hasOwn(samples, key));
-  if (!sample && unknown.length) throw new ApiError(400, `Unknown variables: ${unknown.join(", ")}`);
+  const variables = extractTemplateVariables(texts);
   if (!sample && (!draft.name.trim() || !draft.subject.trim() || !draft.blocks.length)) {
     throw new ApiError(400, "Add a template name, subject, and at least one block.");
   }

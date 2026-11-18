@@ -1,5 +1,5 @@
 import { MailTransport, type IMailTransport } from "../models/mailTransport.model.js";
-import type { Types } from "mongoose";
+
 
 export const transportRepo = {
   list: (orgId: string) =>

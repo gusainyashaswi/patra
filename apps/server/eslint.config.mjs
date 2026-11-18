@@ -1,10 +1,23 @@
-import parser from "@typescript-eslint/parser";
+import js from "@eslint/js";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
-export default [
-  { ignores: ["dist/**", "node_modules/**"] },
+export default tseslint.config(
+  {
+    ignores: ["dist/**", "node_modules/**"],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
     files: ["src/**/*.ts"],
-    languageOptions: { parser, parserOptions: { ecmaVersion: "latest", sourceType: "module" } },
-    rules: { "no-debugger": "error", "no-dupe-keys": "error", "no-duplicate-case": "error", "no-unreachable": "error", "constructor-super": "error", "valid-typeof": "error" },
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      // The server currently uses explicit `any` at a few HTTP/model boundaries.
+      // Keep lint enabled while those boundaries are migrated incrementally.
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
+    },
   },
-];
+);

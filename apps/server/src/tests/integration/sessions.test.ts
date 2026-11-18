@@ -1,3 +1,4 @@
+const cookie = (response: { headers: Record<string, any> }, name: string) => String(response.headers["set-cookie"].find((value: string) => value.startsWith(name + "="))).split(";")[0].slice(name.length + 1);
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import request from "supertest";
 import { app } from "../../app.js";
@@ -12,17 +13,17 @@ describe("Hashed login sessions", () => {
     const ctx = await seedTestContext();
     const login = await request(app).post("/api/auth/login").send({ email: ctx.user.email, password: "Password123!" });
     expect(login.status).toBe(200);
-    const original = login.body.data.refreshToken;
+    const original = cookie(login, "refreshToken");
     const stored = await RefreshToken.findOne({ userId: ctx.user.id });
     expect(stored?.tokenHash).toHaveLength(64);
     expect(stored?.tokenHash).not.toBe(original);
-    expect((await User.findById(ctx.user.id).select("+refreshToken"))?.refreshToken).toBeUndefined();
+    expect((await User.findById(ctx.user.id).select("+refreshToken"))?.get("refreshToken")).toBeUndefined();
     const rotate = await request(app).post("/api/auth/refresh").send({ refreshToken: original });
     expect(rotate.status).toBe(200);
-    expect(rotate.body.data.refreshToken).not.toBe(original);
+    expect(cookie(rotate, "refreshToken")).not.toBe(original);
     expect((await request(app).post("/api/auth/refresh").send({ refreshToken: original })).status).toBe(401);
-    expect((await request(app).post("/api/auth/logout").auth(rotate.body.data.accessToken, { type: "bearer" })).status).toBe(200);
-    expect((await request(app).post("/api/auth/refresh").send({ refreshToken: rotate.body.data.refreshToken })).status).toBe(401);
+    expect((await request(app).post("/api/auth/logout").auth(cookie(rotate, "accessToken"), { type: "bearer" })).status).toBe(200);
+    expect((await request(app).post("/api/auth/refresh").send({ refreshToken: cookie(rotate, "refreshToken") })).status).toBe(401);
   });
   it("disables public registration by default", async () => {
     expect((await request(app).post("/api/auth/register").send({ email: "unwanted@example.test", password: "Password123!" })).status).toBe(403);

@@ -1,5 +1,5 @@
 import { csvCell } from "../lib/csv.js";
-import { RECIPIENT_STATUSES } from "../lib/enums.js";
+import { RECIPIENT_STATUSES } from "@patra/shared/enums";
 import { streamCampaign, publishCampaign } from "../services/campaign-events.js";
 import { Router } from "express";
 import { z } from "zod";

@@ -1,73 +1,94 @@
 import { markRecipientFailed } from "../processors/sendEmail.processor.js";
-import { finishCampaign } from "../services/campaign-lifecycle.js";
 import { Queue, Worker, type Job } from "bullmq";
 import { CampaignRecipient, Campaign } from "../models/campaign.model.js";
-import { SenderIdentity, Domain } from "../models/mailTransport.model.js";
+import { Domain, SenderIdentity } from "../models/mailTransport.model.js";
 import { getRedisConnection } from "../lib/redis.js";
 import { getSendQueue } from "./send.queue.js";
 import { RECONCILE_QUEUE_NAME, RECONCILE_JOB_NAME } from "./names.js";
+import { completeFinishedCampaigns } from "../services/campaignLifecycle.service.js";
+import { dispatchPendingOutboxEvents } from "../services/dispatchOutbox.service.js";
 
 let reconcileQueue: Queue | null = null;
 let reconcileWorker: Worker | null = null;
 
 export async function reconcileOrphanedRecipients(
   thresholdMinutes = 10,
+  batchSize = 500,
 ): Promise<{ checked: number; reEnqueued: number }> {
   const cutoff = new Date(Date.now() - thresholdMinutes * 60 * 1000);
 
-  // Find all QUEUED recipients created before the cutoff
-  const orphans = await CampaignRecipient.find({
-    status: "QUEUED",
-    createdAt: { $lte: cutoff },
-  });
+  // One page per run keeps reconciliation bounded even with a large backlog.
+  const orphans = await CampaignRecipient.find({ status: "QUEUED", createdAt: { $lte: cutoff } })
+    .sort({ createdAt: 1, _id: 1 })
+    .limit(batchSize)
+    .select("_id campaignId organizationId")
+    .lean();
 
-  let reEnqueuedCount = 0;
+  const campaignIds = [...new Set(orphans.map((recipient) => recipient.campaignId.toString()))];
+  const campaigns = campaignIds.length
+    ? await Campaign.find({ _id: { $in: campaignIds }, status: { $in: ["QUEUED", "SENDING"] } })
+      .select("_id senderIdentityId")
+      .lean()
+    : [];
+  const campaignsById = new Map(campaigns.map((campaign) => [campaign._id.toString(), campaign]));
+  const senderIds = [...new Set(campaigns.map((campaign) => campaign.senderIdentityId.toString()))];
+  const senders = senderIds.length
+    ? await SenderIdentity.find({ _id: { $in: senderIds } }).select("_id domainId").lean()
+    : [];
+  const domainIds = [...new Set(senders.map((sender) => sender.domainId.toString()))];
+  const domains = domainIds.length
+    ? await Domain.find({ _id: { $in: domainIds } }).select("_id transportId").lean()
+    : [];
+  const transportByDomainId = new Map(domains.map((domain) => [domain._id.toString(), domain.transportId.toString()]));
+  const transportBySenderId = new Map(senders.map((sender) => [
+    sender._id.toString(),
+    transportByDomainId.get(sender.domainId.toString()),
+  ]));
 
+  const recipientsByTransport = new Map<string, typeof orphans>();
   for (const recipient of orphans) {
-    // Check if campaign is valid and not paused/cancelled
-    const campaign = await Campaign.findOne({ _id: recipient.campaignId, organizationId: recipient.organizationId });
-    if (!campaign || !["QUEUED", "SENDING"].includes(campaign.status)) {
-      continue;
-    }
-
-    // Resolve transportId
-    const sender = await SenderIdentity.findOne({ _id: campaign.senderIdentityId, organizationId: recipient.organizationId });
-    let transportId = sender?.transportId?.toString();
-    if (!transportId && sender?.domainId) {
-      const domain = await Domain.findOne({ _id: sender.domainId, organizationId: recipient.organizationId });
-      transportId = domain?.transportId?.toString();
-    }
-    if (!transportId) continue;
-
-    const queue = getSendQueue(transportId);
-    const existingJob = await queue.getJob(recipient._id.toString());
-
-    if (existingJob && await existingJob.getState() === "failed") {
-      await markRecipientFailed(recipient.id, campaign.id, "Queue attempts exhausted; recovered by reconciliation");
-      continue;
-    }
-    // If no active/waiting/delayed job exists with jobId = recipientId, re-enqueue
-    if (!existingJob) {
-      console.warn(
-        `[Reconcile] Found orphaned QUEUED recipient ${recipient._id} (campaign ${campaign._id}). Re-enqueueing...`,
-      );
-      await queue.add(
-        "sendEmail",
-        {
-          campaignId: campaign._id.toString(),
-          recipientId: recipient._id.toString(),
-          organizationId: recipient.organizationId.toString(),
-        },
-        {
-          jobId: recipient._id.toString(),
-        },
-      );
-      reEnqueuedCount++;
-    }
+    const campaign = campaignsById.get(recipient.campaignId.toString());
+    const transportId = campaign && transportBySenderId.get(campaign.senderIdentityId.toString());
+    if (!campaign || !transportId) continue;
+    const recipients = recipientsByTransport.get(transportId) ?? [];
+    recipients.push(recipient);
+    recipientsByTransport.set(transportId, recipients);
   }
 
-  const unfinished = await Campaign.find({ status: { $in: ["QUEUED", "SENDING"] } }).select("organizationId");
-  for (const campaign of unfinished) await finishCampaign(String(campaign.organizationId), campaign.id);
+  const reEnqueued = await Promise.all([...recipientsByTransport.entries()].map(async ([transportId, recipients]) => {
+    const queue = getSendQueue(transportId);
+    const pipeline = (await queue.client).pipeline();
+    for (const recipient of recipients) {
+      pipeline.runCommand("exists", [queue.toKey(recipient._id.toString())]);
+    }
+    const results = await pipeline.exec();
+    if (!results || results.some(([error]) => error)) {
+      throw new Error("Unable to check queued jobs in Redis during reconciliation");
+    }
+    for (let i = 0; i < recipients.length; i++) {
+      if (results[i]?.[1] !== 0) {
+        const job = await queue.getJob(recipients[i]._id.toString());
+        if (job && await job.getState() === "failed") await markRecipientFailed(recipients[i]._id.toString(), recipients[i].campaignId.toString(), "Queue attempts exhausted; recovered by reconciliation");
+      }
+    }
+    const missingRecipients = recipients.filter((_, index) => results?.[index]?.[1] === 0);
+    if (!missingRecipients.length) return 0;
+
+    await queue.addBulk(missingRecipients.map((recipient) => ({
+      name: "sendEmail",
+      data: {
+        campaignId: recipient.campaignId.toString(),
+        recipientId: recipient._id.toString(),
+        organizationId: recipient.organizationId.toString(),
+      },
+      opts: { jobId: recipient._id.toString() },
+    })));
+    return missingRecipients.length;
+  }));
+  const reEnqueuedCount = reEnqueued.reduce((total, count) => total + count, 0);
+
+  await completeFinishedCampaigns();
+  await dispatchPendingOutboxEvents();
   return { checked: orphans.length, reEnqueued: reEnqueuedCount };
 }
 

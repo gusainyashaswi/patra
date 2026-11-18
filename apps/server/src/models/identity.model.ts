@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { env } from "../config/env.js";
 import { Schema, model, type Types, type Model, type HydratedDocument } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { schemaOptions } from "./base.js";
+import { env } from "../config/env.js";
 
 export interface IUser {
   email: string;
@@ -11,7 +11,6 @@ export interface IUser {
   fullName?: string;
   password?: string;
   passwordHash?: string;
-  refreshToken?: string;
   avatar?: string;
   isPlatformAdmin: boolean;
 }
@@ -22,7 +21,7 @@ export interface IUserMethods {
   generateRefreshToken(): string;
 }
 
-export type UserModel = Model<IUser, {}, IUserMethods>;
+export type UserModel = Model<IUser, Record<string, never>, IUserMethods>;
 export type UserDocument = HydratedDocument<IUser, IUserMethods>;
 
 const userSchema = new Schema<IUser, UserModel, IUserMethods>(
@@ -42,10 +41,6 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     password: {
       type: String,
       required: [true, "Password is required"],
-      select: false,
-    },
-    refreshToken: {
-      type: String,
       select: false,
     },
     avatar: {
@@ -97,10 +92,6 @@ userSchema.methods.isPasswordCorrect = async function (password: string): Promis
 
 // Generate Access Token (Backend2-yuvi standard with Patra RBAC support)
 userSchema.methods.generateAccessToken = function (permissions: string[] = []): string {
-  const secret = env.ACCESS_TOKEN_SECRET;
-
-  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY || process.env.JWT_EXPIRES_IN || "1d";
-
   return jwt.sign(
     {
       jti: randomUUID(),
@@ -113,19 +104,15 @@ userSchema.methods.generateAccessToken = function (permissions: string[] = []): 
       isPlatformAdmin: this.isPlatformAdmin,
       permissions,
     },
-    secret,
+    env.ACCESS_TOKEN_SECRET,
     {
-      expiresIn: expiresIn as any,
+      expiresIn: env.ACCESS_TOKEN_EXPIRY as any,
     },
   );
 };
 
 // Generate Refresh Token
 userSchema.methods.generateRefreshToken = function (): string {
-  const secret = env.REFRESH_TOKEN_SECRET;
-
-  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY || process.env.JWT_REFRESH_EXPIRES_IN || "10d";
-
   return jwt.sign(
     {
       jti: randomUUID(),
@@ -133,9 +120,9 @@ userSchema.methods.generateRefreshToken = function (): string {
       id: this._id.toString(),
       sub: this._id.toString(),
     },
-    secret,
+    env.REFRESH_TOKEN_SECRET,
     {
-      expiresIn: expiresIn as any,
+      expiresIn: env.REFRESH_TOKEN_EXPIRY as any,
     },
   );
 };

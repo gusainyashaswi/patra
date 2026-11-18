@@ -10,7 +10,7 @@ import {
 import { Campaign, CampaignRecipient } from "../../models/campaign.model.js";
 import { sendEmailProcessor } from "../../processors/sendEmail.processor.js";
 import { fakeTransport, registerTransport } from "../../transports/index.js";
-import { TransientError, PermanentError } from "../../lib/errors.js";
+import { TransientError } from "../../lib/errors.js";
 
 describe("Unit: sendEmailProcessor", () => {
   let ctx: Awaited<ReturnType<typeof seedTestContext>>;
@@ -56,7 +56,7 @@ describe("Unit: sendEmailProcessor", () => {
       const recipient = await CampaignRecipient.create({
         organizationId: ctx.organization._id,
         campaignId: campaign._id,
-        contactId: ctx.contacts[0]._id,
+        contactId: new Types.ObjectId(),
         email: `status-${status.toLowerCase()}@test.com`,
         status,
       });

@@ -1,6 +1,6 @@
 import { Schema, model, type Types } from "mongoose";
 import { schemaOptions } from "./base.js";
-import { TEMPLATE_STATUSES, type TemplateStatus } from "../lib/enums.js";
+import { TEMPLATE_STATUSES, type TemplateStatus } from "@patra/shared/enums";
 
 export interface ITemplate {
   organizationId: Types.ObjectId;

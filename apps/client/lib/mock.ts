@@ -122,7 +122,7 @@ const firstNames = ["Aarav", "Diya", "Kabir", "Ananya", "Vihaan", "Ishita", "Arj
 const lastNames = ["Sharma", "Verma", "Iyer", "Nair", "Gupta", "Kapoor", "Reddy", "Menon", "Bose", "Joshi", "Singh", "Rao"];
 const colleges = ["Rishihood University", "Ashoka University", "IIT Delhi", "DTU", "NSUT", "Jamia Millia"];
 
-function seeded(i) {
+function seeded(i: number) {
   const x = Math.sin(i * 9301 + 49297) * 233280;
   return x - Math.floor(x);
 }
@@ -188,13 +188,13 @@ export const campaigns = [
   },
 ];
 
-const errorFor = {
+const errorFor: Record<string, string> = {
   BOUNCED: "550 5.1.1 Mailbox does not exist",
   FAILED: "Provider timeout after 3 retries",
   SKIPPED: "Missing required variable: name",
 };
 
-export function recipientsFor(campaign, n = 40) {
+export function recipientsFor(campaign: { id: string; status: string }, n = 40) {
   const pool = ["DELIVERED", "DELIVERED", "OPENED", "CLICKED", "SENT", "PENDING", "DELIVERED", "OPENED", "BOUNCED", "FAILED", "SKIPPED", "PENDING"];
   return Array.from({ length: n }, (_, i) => {
     const c = contacts[i % contacts.length];
@@ -229,4 +229,4 @@ export const setupSteps = [
   { key: "campaign", label: "Send your first campaign", done: false, href: "/campaigns/new" },
 ];
 
-export const byId = (arr, id) => arr.find((x) => x.id === id);
+export const byId = <T extends { id: string }>(arr: T[], id: string): T | undefined => arr.find((item) => item.id === id);

@@ -1,4 +1,4 @@
-import { Worker, type Job, type Processor } from "bullmq";
+import { Worker, type Processor } from "bullmq";
 import mongoose from "mongoose";
 import { connectDB } from "./db/index.js";
 import { env } from "./config/env.js";

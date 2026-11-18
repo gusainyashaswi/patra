@@ -1,6 +1,6 @@
 import { Schema, model, type Types } from "mongoose";
 import { schemaOptions } from "./base.js";
-import { SUPPRESSION_REASONS, type SuppressionReason } from "../lib/enums.js";
+import { SUPPRESSION_REASONS, type SuppressionReason } from "@patra/shared/enums";
 
 export interface IContact {
   organizationId: Types.ObjectId;
@@ -54,6 +54,29 @@ const listSchema = new Schema<IList>(
 );
 listSchema.index({ organizationId: 1, importKey: 1 }, { unique: true, partialFilterExpression: { importKey: { $type: "string" } } });
 export const List = model<IList>("List", listSchema);
+
+export interface IImportJob {
+  organizationId: Types.ObjectId;
+  requestId: string;
+  status: "PROCESSING" | "COMPLETED" | "FAILED";
+  result?: unknown;
+  error?: string;
+  startedAt: Date;
+}
+
+const importJobSchema = new Schema<IImportJob>(
+  {
+    organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
+    requestId: { type: String, required: true },
+    status: { type: String, enum: ["PROCESSING", "COMPLETED", "FAILED"], required: true },
+    result: Schema.Types.Mixed,
+    error: String,
+    startedAt: { type: Date, default: Date.now },
+  },
+  schemaOptions,
+);
+importJobSchema.index({ organizationId: 1, requestId: 1 }, { unique: true });
+export const ImportJob = model<IImportJob>("ImportJob", importJobSchema);
 
 export interface ISuppression {
   organizationId: Types.ObjectId;

@@ -1,3 +1,4 @@
+const cookie = (response: { headers: Record<string, any> }, name: string) => String(response.headers["set-cookie"].find((value: string) => value.startsWith(name + "="))).split(";")[0].slice(name.length + 1);
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { randomUUID } from "node:crypto";
 import request from "supertest";
@@ -16,7 +17,7 @@ describe("Complete owner API workflow", () => {
     const ctx = await seedTestContext();
     const login = await request(app).post("/api/auth/login").send({ email: ctx.user.email, password: "Password123!" });
     expect(login.status).toBe(200);
-    const token = login.body.data.accessToken;
+    const token = cookie(login, "accessToken");
     const base = `/api/orgs/${ctx.organization.id}`;
     const csv = Buffer.from("email,name\nflow@example.test,Flow Owner\n");
     const preview = await request(app).post(base + "/contacts/import/preview?filename=flow.csv").auth(token, { type: "bearer" }).set("Content-Type", "application/octet-stream").send(csv);
@@ -45,6 +46,6 @@ describe("Complete owner API workflow", () => {
     const overview = await request(app).get(base + "/overview").auth(token, { type: "bearer" });
     expect(overview.body.data.stats.sent).toBe(1);
     expect((await request(app).post("/api/auth/logout").auth(token, { type: "bearer" })).status).toBe(200);
-    expect((await request(app).post("/api/auth/refresh").send({ refreshToken: login.body.data.refreshToken })).status).toBe(401);
+    expect((await request(app).post("/api/auth/refresh").send({ refreshToken: cookie(login, "refreshToken") })).status).toBe(401);
   });
 });

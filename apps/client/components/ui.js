@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useId, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Icon } from "./icons";
 
 export function cx(...parts) {
@@ -350,7 +350,10 @@ export function Kbd({ children }) {
 export function Dialog({ open, onClose, title, description, children, footer, size = "md" }) {
   const ref = useRef(null);
   const titleId = useId();
-  const onCloseLatest = useEffectEvent(() => onClose());
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -360,7 +363,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
       el?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [];
     focusables()[0]?.focus();
     const onKey = (e) => {
-      if (e.key === "Escape") onCloseLatest();
+      if (e.key === "Escape") onCloseRef.current();
       if (e.key === "Tab") {
         const f = [...focusables()];
         if (!f.length) return;
@@ -419,10 +422,13 @@ export function Dialog({ open, onClose, title, description, children, footer, si
 /* ---------- Toast ---------- */
 
 export function Toast({ message, tone = "success", onDone }) {
-  const finish = useEffectEvent(() => onDone());
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(finish, 3200);
+    const t = setTimeout(() => onDoneRef.current(), 3200);
     return () => clearTimeout(t);
   }, [message]);
   return (
@@ -437,8 +443,17 @@ export function Toast({ message, tone = "success", onDone }) {
   );
 }
 
+const ratio = (numerator, denominator) => (denominator > 0 ? numerator / denominator : null);
+const formatPercent = (numerator, denominator) => {
+  const value = ratio(numerator, denominator);
+  return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
+};
+
 export const fmt = {
   n: (v) => new Intl.NumberFormat("en-US").format(v),
-  pct: (a, b) => (b ? `${((a / b) * 100).toFixed(1)}%` : "—"),
+  pct: formatPercent,
+  // Bounces are measured only against messages accepted for delivery, never queued, skipped, or failed rows.
+  bounceRateRatio: (bounced, delivered, inFlight = 0) => ratio(bounced, bounced + delivered + inFlight),
+  bounceRate: (bounced, delivered, inFlight = 0) => formatPercent(bounced, bounced + delivered + inFlight),
   date: (iso) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
 };

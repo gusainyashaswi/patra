@@ -54,7 +54,7 @@ describe("Integration: Worker Failure Handler", () => {
     const queue = getSendQueue(transportId);
 
     // Create a real BullMQ worker with quick backoff for testing
-    const worker = createSendWorker(transportId);
+    createSendWorker(transportId);
 
     // Add job with 2 max attempts and 50ms delay for fast test execution
     await queue.add(

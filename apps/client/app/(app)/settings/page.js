@@ -19,7 +19,7 @@ import {
 import Link from "next/link";
 import { api } from "@/lib/api";
 
-const providerMeta = { RESEND: "Resend", SMTP: "SMTP", SES: "Amazon SES" };
+const providerMeta = { RESEND: "Resend" };
 const EMPTY_TRANSPORT = { name: "", key: "" };
 
 function Row({ icon, title, meta, right, children }) {
@@ -298,11 +298,9 @@ function Settings() {
     let active = true;
     async function load() {
       try {
-        const token = localStorage.getItem("patra-token");
-        if (!token || token === "undefined") throw Object.assign(new Error("Sign in to manage Settings."), { status: 401 });
-        const { data: organizations } = await api("/orgs", { token });
+        const { data: organizations } = await api("/orgs");
         if (!active) return;
-        setSession({ token, organizations });
+        setSession({ organizations });
         setOrgId(organizations[0]?.id ?? "");
       } catch (err) {
         if (active) setError(err);
@@ -334,7 +332,7 @@ function Settings() {
               </Field>
             </div>
           )}
-          <SettingsData key={`${orgId}-${tab}`} tab={tab} orgId={orgId} token={session.token} toast={setToast} />
+          <SettingsData key={`${orgId}-${tab}`} tab={tab} orgId={orgId} toast={setToast} />
         </>}
       <Toast message={toast} onDone={() => setToast("")} />
     </>
@@ -352,7 +350,7 @@ function SettingsError({ error, retry }) {
   );
 }
 
-function SettingsData({ tab, orgId, token, toast }) {
+function SettingsData({ tab, orgId, toast }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [retry, setRetry] = useState(0);
@@ -362,8 +360,8 @@ function SettingsData({ tab, orgId, token, toast }) {
     async function load() {
       try {
         const [items, domains] = await Promise.all([
-          api(`${path}/${tab}`, { token }),
-          tab === "senders" ? api(`${path}/domains`, { token }) : null,
+          api(`${path}/${tab}`),
+          tab === "senders" ? api(`${path}/domains`) : null,
         ]);
         if (active) setResult({ items: items.data, domains: domains?.data ?? [] });
       } catch (err) {
@@ -372,14 +370,14 @@ function SettingsData({ tab, orgId, token, toast }) {
     }
     load();
     return () => { active = false; };
-  }, [tab, path, token, retry]);
+  }, [tab, path, retry]);
 
   async function create(body) {
-    const { data } = await api(`${path}/${tab}`, { token, method: "POST", body });
+    const { data } = await api(`${path}/${tab}`, { method: "POST", body });
     setResult((current) => ({ ...current, items: [...current.items, data] }));
   }
   async function runTransportAction(id, action) {
-    const { data } = await api(`${path}/transports/${id}/${action}`, { token, method: "POST" });
+    const { data } = await api(`${path}/transports/${id}/${action}`, { method: "POST" });
     if (action === "test") {
       setResult((current) => ({
         ...current,

@@ -6,57 +6,6 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon, Logo } from "./icons";
 import { cx } from "./ui";
 import { api } from "@/lib/api";
-import { clearSession, sessionToken, SESSION_EVENT } from "@/lib/session";
-
-function SessionControl() {
-  const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      const token = sessionToken();
-      if (!token) { setUser(null); return; }
-      try {
-        const { data } = await api("/auth/me", { token });
-        if (active) { setUser(data); setError(""); }
-      } catch (error) {
-        if (active) setError(error.message);
-      }
-    }
-    load();
-    window.addEventListener(SESSION_EVENT, load);
-    window.addEventListener("storage", load);
-    return () => {
-      active = false;
-      window.removeEventListener(SESSION_EVENT, load);
-      window.removeEventListener("storage", load);
-    };
-  }, []);
-  async function logout() {
-    setBusy(true);
-    setError("");
-    try {
-      await api("/auth/logout", { method: "POST", token: sessionToken(), body: {} });
-      clearSession();
-      router.replace("/login");
-      router.refresh();
-    } catch (error) {
-      setError(error.message);
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="relative">
-      {user ? <button onClick={logout} disabled={busy} aria-label={`Log out ${user.name || user.email}`}
-        className="flex h-11 items-center gap-2 px-3 text-sm text-on-nav cursor-pointer disabled:opacity-50">
-        <span className="hidden sm:inline">{busy ? "Logging out…" : user.name || user.email}</span><Icon.LogOut size={16} />
-      </button> : <Link href="/login" className="inline-flex h-11 items-center px-3 text-sm text-on-nav">Sign in</Link>}
-      {error && <p role="alert" className="absolute right-0 top-full z-50 w-64 border border-line bg-surface p-3 text-sm text-danger">{error}</p>}
-    </div>
-  );
-}
 
 const nav = [
   { href: "/dashboard", label: "Overview" },
@@ -94,12 +43,37 @@ function ThemeToggle() {
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [user, setUser] = useState(null);
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
   // The designer needs the full viewport; it renders its own chrome.
   const bare = /^\/templates\/[^/]+$/.test(pathname);
   // The overview is a single-screen dashboard on desktop: lock it to the viewport.
   const fit = pathname === "/dashboard";
+  useEffect(() => {
+    let active = true;
+    api("/auth/me").then(({ data }) => {
+      if (active) setUser(data);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "Account";
+  async function logout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch {
+      // The local session should still end if the API is unreachable or already expired.
+    } finally {
+      localStorage.removeItem("patra-token");
+      router.replace("/login");
+      router.refresh();
+    }
+  }
+
   if (bare) return <>{children}</>;
 
   return (
@@ -136,7 +110,16 @@ export default function AppShell({ children }) {
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
-            <SessionControl />
+            <button
+              type="button"
+              onClick={logout}
+              disabled={loggingOut}
+              aria-label={`Log out ${user?.name || "account"}`}
+              title="Log out"
+              className="hidden h-10 items-center gap-2.5 whitespace-nowrap px-3 font-mono xl:inline-flex text-[12px] font-bold uppercase tracking-[0.12em] text-on-nav/70 hover:bg-white/10 hover:text-on-nav cursor-pointer transition-colors"
+            >
+              {loggingOut ? "Logging out…" : firstName} <Icon.LogOut size={15} />
+            </button>
             <Link
               href="/campaigns/new"
               className="hidden h-11 items-center gap-2 whitespace-nowrap bg-accent px-5 font-mono text-[13px] font-bold uppercase tracking-[0.1em] text-on-accent hover:bg-accent-hover sm:inline-flex cursor-pointer transition-colors"
@@ -180,6 +163,12 @@ export default function AppShell({ children }) {
           </nav>
         )}
       </header>
+
+      {!bare && (
+        <div role="status" className="border-b border-warning/30 bg-warning/10 px-5 py-2 text-center text-[13px] text-warning sm:px-10">
+          <span className="font-semibold">Demo mode:</span> Dashboard, campaign, and template sample data is illustrative and does not represent live delivery activity.
+        </div>
+      )}
 
       <main id="main" className="min-w-0">
         <div

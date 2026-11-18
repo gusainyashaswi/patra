@@ -3,7 +3,7 @@ import mongoose, { type ClientSession } from "mongoose";
 import { RefreshToken } from "../models/identity.model.js";
 import { env } from "../config/env.js";
 import { z } from "zod";
-const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
+export const hashRefreshToken = (token: string) => createHash("sha256").update(token).digest("hex");
 import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/identity.model.js";
@@ -55,10 +55,10 @@ export const generateAccessAndRefreshToken = async (userId: any, session?: Clien
     const refreshToken = user.generateRefreshToken();
 
     const expiry = (jwt.decode(refreshToken) as { exp: number }).exp;
-    await RefreshToken.create([{ userId: user._id, tokenHash: tokenHash(refreshToken), expiresAt: new Date(expiry * 1000) }], { session });
+    await RefreshToken.create([{ userId: user._id, tokenHash: hashRefreshToken(refreshToken), expiresAt: new Date(expiry * 1000) }], { session });
     await User.updateOne({ _id: user._id }, { $unset: { refreshToken: 1 } }, { session });
 
-    return { accessToken, refreshToken, token: accessToken };
+    return { accessToken, refreshToken };
   } catch (error: any) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(
@@ -128,7 +128,7 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
     { upsert: true, new: true },
   );
 
-  const { accessToken, refreshToken, token } = await generateAccessAndRefreshToken(user._id);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
   if (!createdUser) {
@@ -144,9 +144,6 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
         201,
         {
           user: createdUser,
-          accessToken,
-          refreshToken,
-          token,
           organization: org,
         },
         "User Created Successfully!",
@@ -175,7 +172,7 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(401, "That email and password don't match.");
   }
 
-  const { accessToken, refreshToken, token } = await generateAccessAndRefreshToken(existedUser._id);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(existedUser._id);
   const loggedInUser = await User.findById(existedUser._id).select("-password -refreshToken");
 
   const membership = await Membership.findOne({ userId: existedUser._id }).populate(
@@ -191,9 +188,6 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
         200,
         {
           user: loggedInUser,
-          accessToken,
-          refreshToken,
-          token,
           membership,
         },
         "User LoggedIn Successfully",
@@ -250,11 +244,11 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
 
     let tokens!: Awaited<ReturnType<typeof generateAccessAndRefreshToken>>;
     await mongoose.connection.transaction(async session => {
-      const consumed = await RefreshToken.findOneAndUpdate({ userId: user._id, tokenHash: tokenHash(incomingRefreshToken), revokedAt: { $exists: false }, expiresAt: { $gt: new Date() } }, { $set: { revokedAt: new Date() } }, { new: true, session });
+      const consumed = await RefreshToken.findOneAndUpdate({ userId: user._id, tokenHash: hashRefreshToken(incomingRefreshToken), revokedAt: { $exists: false }, expiresAt: { $gt: new Date() } }, { $set: { revokedAt: new Date() } }, { new: true, session });
       if (!consumed) throw new ApiError(401, "Refresh token expired or already used");
       tokens = await generateAccessAndRefreshToken(user._id, session);
     });
-    const { accessToken, refreshToken: newRefreshToken, token } = tokens;
+    const { accessToken, refreshToken: newRefreshToken } = tokens;
 
     return res
       .status(200)
@@ -263,7 +257,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
       .json(
         new ApiResponse(
           200,
-          { accessToken, refreshToken: newRefreshToken, token },
+          {},
           "Access token Refreshed",
         ),
       );

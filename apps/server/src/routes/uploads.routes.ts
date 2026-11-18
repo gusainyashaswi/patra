@@ -1,3 +1,4 @@
+import { readImage } from "../services/objectStorage.service.js";
 import { storeImage } from "../services/storage.service.js";
 import express, { Router } from "express";
 import { randomUUID } from "node:crypto";
@@ -12,7 +13,8 @@ const ImageAsset = model("ImageAsset", new Schema({
   key: { type: String, required: true, unique: true },
   organizationId: { type: Schema.Types.ObjectId, required: true, index: true },
   mime: { type: String, required: true },
-  bytes: { type: Buffer, required: true },
+  bytes: Buffer,
+  objectKey: String,
 }, { timestamps: true }));
 
 export const uploadRouter = Router({ mergeParams: true });
@@ -28,7 +30,8 @@ uploadRouter.post("/", requirePermission("manage_templates"),
     if (!mime || !req.is(mime)) throw new ApiError(400, "The file contents must match its PNG or JPEG type.");
     const key = randomUUID();
     const url = await storeImage(req.user!.organizationId!, key, bytes, mime);
-    res.status(201).json({ data: { path: url, url } });
+    await ImageAsset.create({ key, organizationId: req.user!.organizationId, mime, objectKey: `${req.user!.organizationId}/${key}` });
+    res.status(201).json({ data: { path: url ?? `/uploads/${key}`, ...(url ? { url } : {}) } });
   }),
 );
 
@@ -37,10 +40,11 @@ publicImageRouter.get("/:key", ensureDbConnected, asyncHandler(async (req, res) 
   if (!key.success) throw new ApiError(404, "Image not found");
   const image = await ImageAsset.findOne({ key: key.data });
   if (!image) throw new ApiError(404, "Image not found");
+  if (!image.bytes && !image.objectKey) throw new ApiError(404, "Image not found");
   res.set({
     "Content-Type": image.mime,
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
     "Cache-Control": "public, max-age=31536000, immutable",
-  }).send(image.bytes);
+  }).send(image.bytes ?? Buffer.from(await readImage(image.objectKey!)));
 }));

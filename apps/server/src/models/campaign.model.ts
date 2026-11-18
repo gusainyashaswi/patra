@@ -7,7 +7,7 @@ import {
   type CampaignStatus,
   type CampaignPriority,
   type RecipientStatus,
-} from "../lib/enums.js";
+} from "@patra/shared/enums";
 
 export interface ICampaignCounters {
   totalRecipients: number;
@@ -29,6 +29,7 @@ export interface ICampaign {
   scheduledAt?: Date;
   startedAt?: Date;
   completedAt?: Date;
+  dispatch?: { status: "PENDING" | "DISPATCHED"; lastError?: string };
   counters: ICampaignCounters;
 }
 
@@ -45,6 +46,7 @@ const campaignSchema = new Schema<ICampaign>(
     scheduledAt: Date,
     startedAt: Date,
     completedAt: Date,
+    dispatch: { status: { type: String, enum: ["PENDING", "DISPATCHED"] }, lastError: String },
     counters: {
       totalRecipients: { type: Number, default: 0 },
       sentCount: { type: Number, default: 0 },
@@ -106,9 +108,11 @@ const campaignRecipientSchema = new Schema<ICampaignRecipient>(
   },
   schemaOptions,
 );
+campaignRecipientSchema.index({ status: 1, createdAt: 1 });
 campaignRecipientSchema.index({ providerMessageId: 1 });
 campaignRecipientSchema.index({ campaignId: 1, status: 1 });
-campaignRecipientSchema.index({ organizationId: 1, email: 1, campaignId: 1 }, { unique: true });
+campaignRecipientSchema.index({ campaignId: 1, contactId: 1 }, { unique: true });
+campaignRecipientSchema.index({ organizationId: 1, campaignId: 1, status: 1 });
 export const CampaignRecipient = model<ICampaignRecipient>(
   "CampaignRecipient",
   campaignRecipientSchema,
