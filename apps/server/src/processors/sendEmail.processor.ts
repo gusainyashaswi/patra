@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { type Job, DelayedError } from "bullmq";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 import { TemplateVersion } from "../models/template.model.js";
@@ -27,17 +28,20 @@ export async function markRecipientFailed(
   campaignId: string,
   errorMsg: string,
 ): Promise<void> {
-  const updateRes = await CampaignRecipient.updateOne(
-    { _id: recipientId, status: "QUEUED" },
-    { $set: { status: "FAILED", error: errorMsg } },
-  );
-
-  if (updateRes.modifiedCount === 1) {
-    await Campaign.updateOne(
-      { _id: campaignId },
-      { $inc: { "counters.failedCount": 1 } },
+  await mongoose.connection.transaction(async (session) => {
+    const updateRes = await CampaignRecipient.updateOne(
+      { _id: recipientId, campaignId, status: "QUEUED" },
+      { $set: { status: "FAILED", error: errorMsg } },
+      { session },
     );
-  }
+    if (updateRes.modifiedCount === 1) {
+      await Campaign.updateOne(
+        { _id: campaignId },
+        { $inc: { "counters.failedCount": 1 } },
+        { session },
+      );
+    }
+  });
 }
 
 export async function sendEmailProcessor(
@@ -177,25 +181,24 @@ export async function sendEmailProcessor(
       idempotencyKey,
     });
 
-    // 10. Conditional status update: QUEUED -> SENT
-    const updateRes = await CampaignRecipient.updateOne(
-      { _id: recipientId, status: "QUEUED" },
-      {
-        $set: {
+    await mongoose.connection.transaction(async (session) => {
+      const updateRes = await CampaignRecipient.updateOne(
+        { _id: recipientId, organizationId, status: "QUEUED" },
+        { $set: {
           status: "SENT",
           providerMessageId: sendResult.providerMessageId,
           sentAt: new Date(),
-        },
-      },
-    );
-
-    // 11. Atomic counter update only if row was actually updated
-    if (updateRes.modifiedCount === 1) {
-      await Campaign.updateOne(
-        { _id: campaignId },
-        { $inc: { "counters.sentCount": 1 } },
+        } },
+        { session },
       );
-    }
+      if (updateRes.modifiedCount === 1) {
+        await Campaign.updateOne(
+          { _id: campaignId, organizationId },
+          { $inc: { "counters.sentCount": 1 } },
+          { session },
+        );
+      }
+    });
 
     return {
       status: "sent",
