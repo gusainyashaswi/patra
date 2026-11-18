@@ -1,3 +1,4 @@
+import { audit } from "./audit.service.js";
 import { finishCampaign } from "./campaign-lifecycle.js";
 import mongoose, { Types } from "mongoose";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
@@ -10,6 +11,7 @@ import { ApiError } from "../utils/apiError.js";
 export async function startSend(
   organizationId: string,
   campaignId: string,
+  userId?: string,
 ): Promise<{
   campaignId: string;
   totalRecipients: number;
@@ -115,6 +117,7 @@ export async function startSend(
         { session },
       );
       if (!locked) throw new ApiError(409, "Campaign has already been queued");
+      await audit(organizationId, userId, "campaign.send", "campaign", campaignId, session, { recipients: recipientDocs.length });
       allRecipients = recipientDocs.length
         ? await CampaignRecipient.insertMany(recipientDocs, { session })
         : [];

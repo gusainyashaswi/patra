@@ -1,3 +1,4 @@
+import { AuditLog } from "../../models/infra.model.js";
 import request from "supertest";
 import { app } from "../../app.js";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
@@ -20,6 +21,7 @@ describe("MVP completion", () => {
     const recipient = await CampaignRecipient.findOne({ campaignId: campaign.id, contactId: ctx.contacts[0].id });
     expect(recipient?.mergeData).toMatchObject({ name: "Alice", ticket: "TCK-101" });
     expect(recipient?.senderSnapshot?.fromEmail).toBe(ctx.sender.fromEmail);
+    expect(await AuditLog.countDocuments({ organizationId: ctx.organization.id, action: "campaign.send", targetId: campaign.id })).toBe(1);
   });
   it("completes only after dispatch has no queued recipients", async () => {
     const ctx = await seedTestContext();

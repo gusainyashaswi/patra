@@ -28,7 +28,7 @@ transportRouter.post(
   validate({ params: schema.orgParams, body: schema.createTransportBody }),
   async (req, res, next) => {
     try {
-      res.status(201).json({ data: await service.create(req.params.orgId as string, req.body) });
+      res.status(201).json({ data: await service.create(req.params.orgId as string, req.body, String(req.user!._id)) });
     } catch (err) {
       next(err);
     }
@@ -40,7 +40,7 @@ transportRouter.post(
   requirePermission("manage_transport"),
   asyncHandler(async (req, res) => {
     const { orgId, id } = resourceParams.parse(req.params);
-    res.json({ data: await service.checkConnection(orgId, id) });
+    res.json({ data: await service.checkConnection(orgId, id, String(req.user!._id)) });
   }),
 );
 

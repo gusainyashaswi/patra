@@ -99,7 +99,7 @@ campaignRouter.post(
   requirePermission("send_campaigns"),
   asyncHandler(async (req, res) => {
     const { orgId, id } = resourceParams.parse(req.params);
-    const result = await startSend(orgId, id);
+    const result = await startSend(orgId, id, String(req.user!._id));
 
     res.status(202).json({
       status: "accepted",

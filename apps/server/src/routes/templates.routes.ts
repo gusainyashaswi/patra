@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { audit } from "../services/audit.service.js";
 import express, { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -88,9 +90,13 @@ templateRouter.post("/:id/publish", asyncHandler(async (req, res) => {
   const latest = await latestVersion(template);
   if (latest?.draftRevision === revision) return res.json({ data: latest });
   try {
-    const version = await TemplateVersion.create({
+    const version = await mongoose.connection.transaction(async session => {
+    const [published] = await TemplateVersion.create([{
       ...compiled, blocks: draft.blocks, templateId: template._id, organizationId: template.organizationId,
       version: (latest?.version ?? 0) + 1, draftRevision: revision,
+    }], { session });
+    await audit(String(template.organizationId), String(req.user!._id), "template.publish", "template", template.id, session, { version: published.version });
+    return published;
     });
     res.status(201).json({ data: version });
   } catch (error) {
