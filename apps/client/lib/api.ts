@@ -19,6 +19,8 @@ export class ApiClientError extends Error {
   status?: number;
 }
 
+export function api<T>(path: string, options: ApiOptions & { responseType: "blob" }): Promise<Blob>;
+export function api<T>(path: string, options?: ApiOptions): Promise<ApiEnvelope<T>>;
 export async function api<T>(path: string, { method = "GET", body, responseType }: ApiOptions = {}): Promise<ApiEnvelope<T> | Blob> {
   const binary = typeof Blob !== "undefined" && body instanceof Blob;
   let response: Response;
