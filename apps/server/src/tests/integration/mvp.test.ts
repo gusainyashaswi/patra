@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { setupTestDb, teardownTestDb, clearTestDb, seedTestContext } from "../testHelper.js";
 import { Campaign, CampaignRecipient } from "../../models/campaign.model.js";
 import { startSend } from "../../services/send.service.js";
+import { reserveQuota, DailyQuota } from "../../services/quota.service.js";
 import { finishCampaign } from "../../services/campaign-lifecycle.js";
 import { Contact } from "../../models/audience.model.js";
 
@@ -27,6 +28,18 @@ describe("MVP completion", () => {
     await CampaignRecipient.updateMany({ campaignId: campaign.id, status: "QUEUED" }, { $set: { status: "SENT" } });
     await finishCampaign(ctx.organization.id, campaign.id);
     expect((await Campaign.findById(campaign.id))?.status).toBe("COMPLETED");
+  });
+
+  it("reserves daily quota atomically and reuses reservations", async () => {
+    const ctx = await seedTestContext();
+    const campaign = await Campaign.create({ organizationId: ctx.organization.id, name: "Quota", templateVersionId: ctx.templateVersion.id, senderIdentityId: ctx.sender.id, listId: ctx.list.id });
+    await startSend(ctx.organization.id, campaign.id);
+    const recipients = await CampaignRecipient.find({ campaignId: campaign.id, status: "QUEUED" });
+    const results = await Promise.all(recipients.map(r => reserveQuota(ctx.organization.id, ctx.transport.id, r.id, 1)));
+    expect(results.filter(Boolean)).toHaveLength(1);
+    const winner = recipients[results.indexOf(true)];
+    expect(await reserveQuota(ctx.organization.id, ctx.transport.id, winner.id, 1)).toBe(true);
+    expect((await DailyQuota.findOne({ transportId: ctx.transport.id }))?.used).toBe(1);
   });
 
 });

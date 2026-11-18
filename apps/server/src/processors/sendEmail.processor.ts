@@ -4,6 +4,8 @@ import { type Job, DelayedError } from "bullmq";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 import { TemplateVersion } from "../models/template.model.js";
 import { SenderIdentity, Domain } from "../models/mailTransport.model.js";
+import { reserveQuota, nextUtcDay } from "../services/quota.service.js";
+import { MailTransport } from "../models/mailTransport.model.js";
 import { Contact, Suppression } from "../models/audience.model.js";
 import { renderEmail } from "../services/render.service.js";
 import {
@@ -182,6 +184,11 @@ export async function sendEmailProcessor(
       await finishCampaign(organizationId, campaignId);
       return { status: "suppressed" };
     }
+    const transport = await MailTransport.findOne({ _id: transportId, organizationId });
+    if (!await reserveQuota(organizationId, transportId, recipientId, transport?.dailyLimit ?? 0)) {
+      await job.moveToDelayed(nextUtcDay(), token);
+      throw new DelayedError();
+    }
     const sendResult = await transportAdapter.send({
       to: recipient.email,
       from: fromAddress,
@@ -218,6 +225,7 @@ export async function sendEmailProcessor(
       providerMessageId: sendResult.providerMessageId,
     };
   } catch (error: unknown) {
+    if (error instanceof DelayedError) throw error;
     if (error instanceof PermanentError) {
       await markRecipientFailed(recipientId, campaignId, error.message);
       return { status: "failed_permanent", error: error.message };
