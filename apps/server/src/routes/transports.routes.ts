@@ -9,7 +9,6 @@ import * as service from "../services/transport.service.js";
 
 export const transportRouter = Router({ mergeParams: true });
 
-
 transportRouter.get(
   "/",
   requirePermission("manage_transport"),

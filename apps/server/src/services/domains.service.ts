@@ -25,27 +25,37 @@ export async function syncResendDomains(organizationId: string, transportId: str
   for (const domain of domains) {
     const filter = { organizationId, name: domain.name };
     try {
-      await Domain.updateOne(filter, {
-        $setOnInsert: { ...filter, transportId },
-      }, { upsert: true });
+      await Domain.updateOne(
+        filter,
+        {
+          $setOnInsert: { ...filter, transportId },
+        },
+        { upsert: true },
+      );
     } catch (error) {
       if ((error as { code?: number }).code !== 11000) throw error;
     }
-    const result = await Domain.updateOne({ ...filter, transportId }, {
-      $set: {
-        providerDomainId: domain.id,
-        verified: domain.status === "verified" && domain.capabilities?.sending !== "disabled",
+    const result = await Domain.updateOne(
+      { ...filter, transportId },
+      {
+        $set: {
+          providerDomainId: domain.id,
+          verified: domain.status === "verified" && domain.capabilities?.sending !== "disabled",
+        },
       },
-    });
+    );
     if (!result.matchedCount) conflicts.push(domain.name);
   }
 
-  await Domain.updateMany({
-    organizationId,
-    transportId,
-    providerDomainId: { $exists: true },
-    name: { $nin: domains.map((domain) => domain.name) },
-  }, { $set: { verified: false } });
+  await Domain.updateMany(
+    {
+      organizationId,
+      transportId,
+      providerDomainId: { $exists: true },
+      name: { $nin: domains.map((domain) => domain.name) },
+    },
+    { $set: { verified: false } },
+  );
 
   return { synced: domains.length - conflicts.length, conflicts };
 }

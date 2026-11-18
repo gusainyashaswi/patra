@@ -9,6 +9,7 @@ const schema = z.object({
   MONGODB_URI: z.string().optional(),
   MONGO_URL: z.string().optional(),
   REDIS_URL: z.string().default("redis://localhost:6379"),
+  WORKER_CONCURRENCY: z.coerce.number().default(5),
   ACCESS_TOKEN_SECRET: z.string().optional(),
   ACCESS_TOKEN_EXPIRY: z.string().default("1d"),
   REFRESH_TOKEN_SECRET: z.string().optional(),
@@ -35,6 +36,7 @@ export const env = {
   MONGODB_URI: parsed.MONGODB_URI || parsed.MONGO_URL || "mongodb://localhost:27017/patra",
   MONGO_URL: parsed.MONGO_URL || parsed.MONGODB_URI || "mongodb://localhost:27017/patra",
   REDIS_URL: parsed.REDIS_URL,
+  WORKER_CONCURRENCY: parsed.WORKER_CONCURRENCY,
   ACCESS_TOKEN_SECRET:
     parsed.ACCESS_TOKEN_SECRET ||
     parsed.JWT_ACCESS_SECRET ||

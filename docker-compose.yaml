@@ -1,6 +1,7 @@
 services:
   redis:
     image: redis:latest
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
 
@@ -45,6 +46,7 @@ services:
       context: ./apps/server
       dockerfile: Dockerfile
     command: ["node", "dist/worker.js"]
+    stop_grace_period: 30s
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://patra:patra@mongo:27017/patra?authSource=admin

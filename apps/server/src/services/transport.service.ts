@@ -33,5 +33,10 @@ export async function checkConnection(orgId: string, id: string) {
   }
   transport.lastTestedAt = new Date();
   await transport.save();
-  return { id: transport.id, status: transport.status, lastTestedAt: transport.lastTestedAt, message };
+  return {
+    id: transport.id,
+    status: transport.status,
+    lastTestedAt: transport.lastTestedAt,
+    message,
+  };
 }
