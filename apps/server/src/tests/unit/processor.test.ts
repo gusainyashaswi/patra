@@ -199,3 +199,29 @@ describe("Unit: sendEmailProcessor", () => {
     expect(freshCampaign?.counters.sentCount).toBe(0);
   });
 });
+
+describe("Suppression at dispatch", () => {
+  beforeAll(setupTestDb);
+  afterAll(teardownTestDb);
+  beforeEach(clearTestDb);
+
+  it("skips an address suppressed after it was queued", async () => {
+    const ctx = await seedTestContext();
+    const campaign = await Campaign.create({
+      organizationId: ctx.organization.id, name: "Late suppression",
+      templateVersionId: ctx.templateVersion.id, senderIdentityId: ctx.sender.id,
+      listId: ctx.list.id, status: "QUEUED",
+    });
+    const recipient = await CampaignRecipient.create({
+      organizationId: ctx.organization.id, campaignId: campaign.id,
+      contactId: ctx.contacts[0].id, email: ctx.contacts[0].email, status: "QUEUED",
+    });
+    const { Suppression } = await import("../../models/audience.model.js");
+    await Suppression.create({ organizationId: ctx.organization.id, email: recipient.email, reason: "UNSUBSCRIBED" });
+    const result = await sendEmailProcessor({
+      data: { recipientId: recipient.id, campaignId: campaign.id, organizationId: ctx.organization.id },
+    } as any);
+    expect(result.status).toBe("suppressed");
+    expect((await CampaignRecipient.findById(recipient.id))?.status).toBe("SKIPPED");
+  });
+});

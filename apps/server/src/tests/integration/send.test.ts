@@ -122,3 +122,40 @@ describe("Integration: POST /api/orgs/:orgId/campaigns/:id/send", () => {
     expect(recipientsAfter.length).toBe(3);
   });
 });
+
+describe("Send setup regression", () => {
+  beforeAll(setupTestDb);
+  afterAll(teardownTestDb);
+  beforeEach(clearTestDb);
+
+  it("keeps the campaign editable when its audience is missing", async () => {
+    const ctx = await seedTestContext();
+    const campaign = await Campaign.create({
+      organizationId: ctx.organization._id, name: "Missing audience",
+      templateVersionId: ctx.templateVersion._id, senderIdentityId: ctx.sender._id,
+      listId: ctx.list._id,
+    });
+    await List.deleteOne({ _id: ctx.list._id });
+    const result = await request(app)
+      .post(`/api/orgs/${ctx.organization.id}/campaigns/${campaign.id}/send`)
+      .set("Authorization", `Bearer ${ctx.accessToken}`);
+    expect(result.status).toBe(404);
+    expect((await Campaign.findById(campaign.id))?.status).toBe("DRAFT");
+    expect(await CampaignRecipient.countDocuments({ campaignId: campaign.id })).toBe(0);
+  });
+});
+
+describe("Transport discovery", () => {
+  beforeAll(setupTestDb);
+  afterAll(teardownTestDb);
+  beforeEach(clearTestDb);
+
+  it("finds verified transports created after initial discovery", async () => {
+    const { discoverTransportWorkers, getActiveWorkers } = await import("../../worker.js");
+    const { getSendQueueName } = await import("../../queue/names.js");
+    await discoverTransportWorkers();
+    const ctx = await seedTestContext();
+    await discoverTransportWorkers();
+    expect(getActiveWorkers().has(getSendQueueName(ctx.transport.id))).toBe(true);
+  });
+});

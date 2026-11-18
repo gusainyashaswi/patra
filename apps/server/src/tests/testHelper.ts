@@ -18,10 +18,10 @@ export async function setupTestDb(): Promise<string> {
     replSet = await MongoMemoryReplSet.create({
       replSet: { count: 1, storageEngine: "wiredTiger" },
     });
-    const uri = replSet.getUri();
+    const uri = replSet.getUri("patra");
     await mongoose.connect(uri);
   }
-  return replSet.getUri();
+  return replSet.getUri("patra");
 }
 
 export async function teardownTestDb(): Promise<void> {

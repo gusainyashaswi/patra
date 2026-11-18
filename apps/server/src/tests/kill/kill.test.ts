@@ -76,17 +76,18 @@ describe("Kill Test: Mid-Send Worker Termination & Recovery", () => {
       const childEnv = {
         ...process.env,
         MONGODB_URI: mongoUri,
-        REDIS_URL: "redis://localhost:6379",
+        REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
         NODE_ENV: "test",
         USE_FAKE_TRANSPORT: "true",
         WORKER_CONCURRENCY: "5",
+        WORKER_LOCK_MS: "2000",
         PATRA_RUN_WORKER: "true",
       };
 
       // 3. Start worker process 1
       let worker1: ChildProcess | null = spawn(
-        "npx",
-        ["tsx", workerScript],
+        process.execPath,
+        ["--import", "tsx", workerScript],
         {
           cwd: serverDir,
           env: childEnv,
@@ -118,8 +119,8 @@ describe("Kill Test: Mid-Send Worker Termination & Recovery", () => {
 
       // 6. Start worker process 2 to recover and drain queue
       const worker2: ChildProcess = spawn(
-        "npx",
-        ["tsx", workerScript],
+        process.execPath,
+        ["--import", "tsx", workerScript],
         {
           cwd: serverDir,
           env: childEnv,

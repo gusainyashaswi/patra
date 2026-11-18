@@ -9,10 +9,7 @@ export default defineConfig({
     include: ["src/tests/**/*.test.ts"],
     exclude: ["dist/**", "node_modules/**"],
     pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    fileParallelism: false,
+    maxWorkers: 1,
   },
 });
