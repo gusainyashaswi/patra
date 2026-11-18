@@ -1,3 +1,4 @@
+import { browserOrigin } from "./middleware/browser-origin.js";
 import express from "express";
 import mongoose from "mongoose";
 import { webhookRouter } from "./routes/webhooks.routes.js";
@@ -31,6 +32,7 @@ app.use((req, res, next) => {
 });
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser());
+app.use(browserOrigin);
 
 // Health & Root endpoints
 app.get("/", (_req, res) => {

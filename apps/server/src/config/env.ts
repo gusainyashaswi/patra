@@ -26,6 +26,7 @@ const schema = z.object({
 
 const parsed = schema.parse(process.env);
 if (parsed.NODE_ENV === "production") {
+  if (process.env.USE_FAKE_TRANSPORT === "true") throw new Error("Fake transport is not allowed in production");
   const access = parsed.ACCESS_TOKEN_SECRET || parsed.JWT_ACCESS_SECRET || parsed.JWT_SECRET;
   const refresh = parsed.REFRESH_TOKEN_SECRET || parsed.JWT_REFRESH_SECRET;
   const encryption = parsed.CREDENTIALS_KEY || parsed.ENCRYPTION_KEY;

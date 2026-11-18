@@ -1,3 +1,4 @@
+import { publishCampaign } from "../../services/campaign-events.js";
 import { sendEmailProcessor } from "../../processors/sendEmail.processor.js";
 import { fakeTransport } from "../../transports/index.js";
 import { AuditLog } from "../../models/infra.model.js";
@@ -67,6 +68,9 @@ describe("MVP completion", () => {
       const reader = response.body!.getReader();
       const first = await reader.read();
       expect(new TextDecoder().decode(first.value)).toContain("event: snapshot");
+      await publishCampaign(ctx.organization.id, campaign.id);
+      const notification = await reader.read();
+      expect(new TextDecoder().decode(notification.value)).toContain("event: change");
       await reader.cancel();
     } finally { controller.abort(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   });
