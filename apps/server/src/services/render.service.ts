@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
 
 const escapeHtml = (value: string) =>
@@ -77,7 +77,11 @@ export function verifyUnsubscribeToken(
     hmac.update(payload);
     const expectedSig = hmac.digest("hex");
 
-    if (expectedSig !== s) return { valid: false };
+    const expected = Buffer.from(expectedSig, "hex");
+    const received = Buffer.from(String(s), "hex");
+    if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
+      return { valid: false };
+    }
 
     return { valid: true, organizationId: o, email: e };
   } catch {

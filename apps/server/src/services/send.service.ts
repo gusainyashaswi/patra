@@ -5,6 +5,7 @@ import { SenderIdentity, Domain, MailTransport } from "../models/mailTransport.m
 import { Contact, List, Suppression } from "../models/audience.model.js";
 import { getSendQueue } from "../queue/send.queue.js";
 import { ApiError } from "../utils/apiError.js";
+import { completeCampaignIfFinished } from "./campaignLifecycle.service.js";
 
 export async function startSend(
   organizationId: string,
@@ -145,6 +146,9 @@ export async function startSend(
       console.error("Queue dispatch deferred to reconciliation", campaignId, error instanceof Error ? error.message : "Redis failure");
     }
   }
+
+  // A fully skipped (or empty) campaign has no worker transition to trigger completion.
+  await completeCampaignIfFinished(campaignId);
 
   return {
     campaignId,

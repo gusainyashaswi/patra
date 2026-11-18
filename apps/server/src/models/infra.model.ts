@@ -7,6 +7,7 @@ export interface IWebhookEvent {
   type: string;
   payload: unknown;
   receivedAt: Date;
+  processedAt?: Date;
 }
 
 const webhookEventSchema = new Schema<IWebhookEvent>(
@@ -16,6 +17,7 @@ const webhookEventSchema = new Schema<IWebhookEvent>(
     type: { type: String, required: true },
     payload: Schema.Types.Mixed,
     receivedAt: { type: Date, default: Date.now },
+    processedAt: Date,
   },
   { ...schemaOptions, timestamps: false },
 );

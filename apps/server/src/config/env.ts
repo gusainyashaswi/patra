@@ -22,6 +22,7 @@ const schema = z.object({
   CREDENTIALS_KEY: z.string().regex(/^[0-9a-f]{64}$/i).optional(),
   ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/i).optional(),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  RESEND_WEBHOOK_SECRET: z.string().startsWith("whsec_").optional(),
 });
 
 const parsed = schema.parse(process.env);
@@ -62,4 +63,5 @@ export const env = {
   CREDENTIALS_KEY: credentialsKey,
   ENCRYPTION_KEY: credentialsKey,
   CORS_ORIGIN: parsed.CORS_ORIGIN,
+  RESEND_WEBHOOK_SECRET: parsed.RESEND_WEBHOOK_SECRET,
 };

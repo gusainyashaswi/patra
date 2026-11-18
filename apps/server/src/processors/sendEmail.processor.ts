@@ -11,6 +11,7 @@ import {
   PermanentError,
 } from "../transports/index.js";
 import type { SendEmailJobData } from "../queue/send.queue.js";
+import { completeCampaignIfFinished } from "../services/campaignLifecycle.service.js";
 
 const FINAL_STATUSES = new Set([
   "SENT",
@@ -42,6 +43,7 @@ export async function markRecipientFailed(
       );
     }
   });
+  await completeCampaignIfFinished(campaignId);
 }
 
 export async function sendEmailProcessor(
@@ -151,6 +153,7 @@ export async function sendEmailProcessor(
       { _id: recipientId, status: "QUEUED" },
       { $set: { status: "SKIPPED", error: renderResult.error } },
     );
+    await completeCampaignIfFinished(campaignId);
     return { status: "skipped", reason: renderResult.error };
   }
 
@@ -168,6 +171,7 @@ export async function sendEmailProcessor(
         { _id: recipientId, organizationId, status: "QUEUED" },
         { $set: { status: "SKIPPED", error: "Address is suppressed" } },
       );
+      await completeCampaignIfFinished(campaignId);
       return { status: "suppressed" };
     }
     const sendResult = await transportAdapter.send({
@@ -199,6 +203,7 @@ export async function sendEmailProcessor(
         );
       }
     });
+    await completeCampaignIfFinished(campaignId);
 
     return {
       status: "sent",

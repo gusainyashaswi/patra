@@ -69,8 +69,10 @@ export interface ICampaignRecipient {
   sentAt?: Date;
   deliveredAt?: Date;
   bouncedAt?: Date;
+  failedAt?: Date;
   openedAt?: Date;
   clickedAt?: Date;
+  complainedAt?: Date;
 }
 
 const campaignRecipientSchema = new Schema<ICampaignRecipient>(
@@ -85,8 +87,10 @@ const campaignRecipientSchema = new Schema<ICampaignRecipient>(
     sentAt: Date,
     deliveredAt: Date,
     bouncedAt: Date,
+    failedAt: Date,
     openedAt: Date,
     clickedAt: Date,
+    complainedAt: Date,
   },
   schemaOptions,
 );
