@@ -64,6 +64,8 @@ export interface ICampaignRecipient {
   contactId: Types.ObjectId;
   email: string;
   status: RecipientStatus;
+  requiresReview?: boolean;
+  renderedMessage?: { subject: string; html: string; text: string; headers: Record<string, string> };
   quotaDay?: string;
   firstAttemptAt?: Date;
   mergeData?: Record<string, unknown>;
@@ -86,6 +88,8 @@ const campaignRecipientSchema = new Schema<ICampaignRecipient>(
     contactId: { type: Schema.Types.ObjectId, ref: "Contact", required: true },
     email: { type: String, required: true, lowercase: true, trim: true },
     status: { type: String, enum: [...RECIPIENT_STATUSES], default: "QUEUED" },
+    requiresReview: Boolean,
+    renderedMessage: Schema.Types.Mixed,
     quotaDay: String,
     firstAttemptAt: Date,
     mergeData: Schema.Types.Mixed,

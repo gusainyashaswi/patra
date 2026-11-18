@@ -189,14 +189,23 @@ export async function sendEmailProcessor(
       await job.moveToDelayed(nextUtcDay(), token);
       throw new DelayedError();
     }
+    if (recipient.firstAttemptAt && Date.now() - recipient.firstAttemptAt.getTime() >= 23 * 60 * 60 * 1000) {
+      await markRecipientFailed(recipientId, campaignId, "Delivery uncertain: retry window expired; manual review required");
+      await CampaignRecipient.updateOne({ _id: recipientId, organizationId }, { $set: { requiresReview: true } });
+      return { status: "requires_review" };
+    }
+    // Persist exact bytes, including the unsubscribe URL, before calling Resend.
+    await CampaignRecipient.updateOne({ _id: recipientId, organizationId, firstAttemptAt: { $exists: false } }, { $set: { firstAttemptAt: new Date(), renderedMessage: renderResult } });
+    const stored = await CampaignRecipient.findOne({ _id: recipientId, organizationId });
+    const message = stored?.renderedMessage ?? renderResult;
     const sendResult = await transportAdapter.send({
       to: recipient.email,
       from: fromAddress,
       replyTo: sender.replyTo,
-      subject: renderResult.subject,
-      html: renderResult.html,
-      text: renderResult.text,
-      headers: renderResult.headers,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+      headers: message.headers,
       idempotencyKey,
     });
 

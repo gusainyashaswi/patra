@@ -1,3 +1,5 @@
+import { markRecipientFailed } from "../processors/sendEmail.processor.js";
+import { finishCampaign } from "../services/campaign-lifecycle.js";
 import { Queue, Worker, type Job } from "bullmq";
 import { CampaignRecipient, Campaign } from "../models/campaign.model.js";
 import { SenderIdentity, Domain } from "../models/mailTransport.model.js";
@@ -23,16 +25,16 @@ export async function reconcileOrphanedRecipients(
 
   for (const recipient of orphans) {
     // Check if campaign is valid and not paused/cancelled
-    const campaign = await Campaign.findById(recipient.campaignId);
+    const campaign = await Campaign.findOne({ _id: recipient.campaignId, organizationId: recipient.organizationId });
     if (!campaign || !["QUEUED", "SENDING"].includes(campaign.status)) {
       continue;
     }
 
     // Resolve transportId
-    const sender = await SenderIdentity.findById(campaign.senderIdentityId);
+    const sender = await SenderIdentity.findOne({ _id: campaign.senderIdentityId, organizationId: recipient.organizationId });
     let transportId = sender?.transportId?.toString();
     if (!transportId && sender?.domainId) {
-      const domain = await Domain.findById(sender.domainId);
+      const domain = await Domain.findOne({ _id: sender.domainId, organizationId: recipient.organizationId });
       transportId = domain?.transportId?.toString();
     }
     if (!transportId) continue;
@@ -40,6 +42,10 @@ export async function reconcileOrphanedRecipients(
     const queue = getSendQueue(transportId);
     const existingJob = await queue.getJob(recipient._id.toString());
 
+    if (existingJob && await existingJob.getState() === "failed") {
+      await markRecipientFailed(recipient.id, campaign.id, "Queue attempts exhausted; recovered by reconciliation");
+      continue;
+    }
     // If no active/waiting/delayed job exists with jobId = recipientId, re-enqueue
     if (!existingJob) {
       console.warn(
@@ -60,6 +66,8 @@ export async function reconcileOrphanedRecipients(
     }
   }
 
+  const unfinished = await Campaign.find({ status: { $in: ["QUEUED", "SENDING"] } }).select("organizationId");
+  for (const campaign of unfinished) await finishCampaign(String(campaign.organizationId), campaign.id);
   return { checked: orphans.length, reEnqueued: reEnqueuedCount };
 }
 
