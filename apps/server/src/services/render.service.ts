@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
 
 const escapeHtml = (value: string) =>
@@ -69,7 +69,10 @@ export function verifyUnsubscribeToken(
     const parsed = JSON.parse(raw);
     const { o, e, x, s } = parsed;
 
-    if (!o || !e || !x || !s) return { valid: false };
+    if (typeof o !== "string" || !/^[a-f0-9]{24}$/i.test(o) ||
+        typeof e !== "string" || e.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(e) ||
+        typeof x !== "number" || !Number.isFinite(x) ||
+        typeof s !== "string" || !/^[a-f0-9]{64}$/.test(s)) return { valid: false };
     if (Date.now() > Number(x)) return { valid: false };
 
     const payload = `${o}:${e}:${x}`;
@@ -77,7 +80,7 @@ export function verifyUnsubscribeToken(
     hmac.update(payload);
     const expectedSig = hmac.digest("hex");
 
-    if (expectedSig !== s) return { valid: false };
+    if (!timingSafeEqual(Buffer.from(expectedSig, "hex"), Buffer.from(s, "hex"))) return { valid: false };
 
     return { valid: true, organizationId: o, email: e };
   } catch {
@@ -127,7 +130,7 @@ export function renderEmail(params: RenderParams): RenderResult {
   const unsubscribeUrl = `${baseUrl.replace(/\/$/, "")}/api/public/unsubscribe/${token}`;
 
   // Append unsubscribe link to HTML if not present
-  if (!renderedHtml.includes(unsubscribeUrl) && !renderedHtml.includes("unsubscribe")) {
+  if (!renderedHtml.includes(unsubscribeUrl)) {
     const footerHtml = `
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e7e5e4;">
         <tr>
@@ -146,7 +149,7 @@ export function renderEmail(params: RenderParams): RenderResult {
   }
 
   // Append unsubscribe to text
-  if (!renderedText.includes(unsubscribeUrl) && !renderedText.toLowerCase().includes("unsubscribe")) {
+  if (!renderedText.includes(unsubscribeUrl)) {
     renderedText += `\n\nUnsubscribe: ${unsubscribeUrl}`;
   }
 

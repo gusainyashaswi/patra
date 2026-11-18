@@ -7,6 +7,8 @@ import { orgRouter } from "./routes/orgs.routes.js";
 import { publicImageRouter } from "./routes/uploads.routes.js";
 import { env } from "./config/env.js";
 
+import { unsubscribeRouter } from "./routes/unsubscribe.routes.js";
+
 export const app = express();
 
 // Middlewares
@@ -39,6 +41,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 // API Routes
+app.use("/api/public/unsubscribe", unsubscribeRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/orgs", orgRouter);
 app.use("/api/uploads", publicImageRouter);
