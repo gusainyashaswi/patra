@@ -1,5 +1,6 @@
 import mongoose, { Types } from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 import { getRedisConnection, closeRedisConnection } from "../lib/redis.js";
 import { registerTransport, fakeTransport, clearTransportCache } from "../transports/index.js";
 import { closeAllQueues } from "../queue/send.queue.js";
@@ -12,8 +13,24 @@ import { Contact, List, Suppression } from "../models/audience.model.js";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 
 let replSet: MongoMemoryReplSet | null = null;
+let redisContainer: StartedTestContainer | null = null;
+
+export async function setupTestRedis(): Promise<string> {
+  if (!redisContainer) {
+    redisContainer = await new GenericContainer("redis:7.4-alpine")
+      .withExposedPorts(6379)
+      .withWaitStrategy(Wait.forLogMessage(/Ready to accept connections/))
+      .start();
+    const url = `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
+    process.env.REDIS_URL = url;
+    return url;
+  }
+
+  return `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
+}
 
 export async function setupTestDb(): Promise<string> {
+  await setupTestRedis();
   if (!replSet) {
     replSet = await MongoMemoryReplSet.create({
       replSet: { count: 1, storageEngine: "wiredTiger" },
@@ -29,6 +46,11 @@ export async function teardownTestDb(): Promise<void> {
   await stopAllWorkers();
   await closeAllQueues();
   await closeRedisConnection();
+
+  if (redisContainer) {
+    await redisContainer.stop();
+    redisContainer = null;
+  }
 
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();

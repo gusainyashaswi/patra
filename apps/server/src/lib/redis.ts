@@ -3,9 +3,13 @@ import { env } from "../config/env.js";
 
 let redisClient: IORedis | null = null;
 
+function redisUrl(): string {
+  return process.env.REDIS_URL || env.REDIS_URL;
+}
+
 export function getRedisConnection(options?: RedisOptions): IORedis {
   if (!redisClient || redisClient.status === "end") {
-    redisClient = new IORedis(env.REDIS_URL, {
+    redisClient = new IORedis(redisUrl(), {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
       ...options,
@@ -15,7 +19,7 @@ export function getRedisConnection(options?: RedisOptions): IORedis {
 }
 
 export function createRedisClient(options?: RedisOptions): IORedis {
-  return new IORedis(env.REDIS_URL, {
+  return new IORedis(redisUrl(), {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     ...options,

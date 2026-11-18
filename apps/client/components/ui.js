@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useId, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Icon } from "./icons";
 
 export function cx(...parts) {
@@ -350,7 +350,8 @@ export function Kbd({ children }) {
 export function Dialog({ open, onClose, title, description, children, footer, size = "md" }) {
   const ref = useRef(null);
   const titleId = useId();
-  const onCloseLatest = useEffectEvent(() => onClose());
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -360,7 +361,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
       el?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [];
     focusables()[0]?.focus();
     const onKey = (e) => {
-      if (e.key === "Escape") onCloseLatest();
+      if (e.key === "Escape") onCloseRef.current();
       if (e.key === "Tab") {
         const f = [...focusables()];
         if (!f.length) return;
@@ -419,10 +420,11 @@ export function Dialog({ open, onClose, title, description, children, footer, si
 /* ---------- Toast ---------- */
 
 export function Toast({ message, tone = "success", onDone }) {
-  const finish = useEffectEvent(() => onDone());
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(finish, 3200);
+    const t = setTimeout(() => onDoneRef.current(), 3200);
     return () => clearTimeout(t);
   }, [message]);
   return (
