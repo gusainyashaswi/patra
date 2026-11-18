@@ -1,3 +1,9 @@
+import { createHash } from "node:crypto";
+import mongoose, { type ClientSession } from "mongoose";
+import { RefreshToken } from "../models/identity.model.js";
+import { env } from "../config/env.js";
+import { z } from "zod";
+const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/identity.model.js";
@@ -14,7 +20,7 @@ export const cookieOptions = {
   sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax",
 };
 
-export const generateAccessAndRefreshToken = async (userId: any) => {
+export const generateAccessAndRefreshToken = async (userId: any, session?: ClientSession) => {
   try {
     const user = await User.findById(userId);
     if (!user) {
@@ -48,8 +54,9 @@ export const generateAccessAndRefreshToken = async (userId: any) => {
     const accessToken = user.generateAccessToken(permissions);
     const refreshToken = user.generateRefreshToken();
 
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
+    const expiry = (jwt.decode(refreshToken) as { exp: number }).exp;
+    await RefreshToken.create([{ userId: user._id, tokenHash: tokenHash(refreshToken), expiresAt: new Date(expiry * 1000) }], { session });
+    await User.updateOne({ _id: user._id }, { $unset: { refreshToken: 1 } }, { session });
 
     return { accessToken, refreshToken, token: accessToken };
   } catch (error: any) {
@@ -62,6 +69,7 @@ export const generateAccessAndRefreshToken = async (userId: any) => {
 };
 
 export const registerUser = asyncHandler(async (req: Request, res: Response) => {
+  if (process.env.ALLOW_REGISTRATION !== "true") throw new ApiError(403, "Registration is disabled. Use the owner setup command.");
   const { email, password, name, fullName } = req.body;
   const userName = name || fullName;
 
@@ -147,7 +155,7 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const loginUser = asyncHandler(async (req: Request, res: Response) => {
-  const { email, username, password } = req.body;
+  const { email, username, password } = z.object({ email: z.string().optional(), username: z.string().optional(), password: z.string().min(1).max(1024) }).parse(req.body);
   const identifier = (email || username || "").toString().trim().toLowerCase();
 
   if (!identifier || !password) {
@@ -195,6 +203,7 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
 export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
   if (req.user?._id) {
+    await RefreshToken.updateMany({ userId: req.user._id, revokedAt: { $exists: false } }, { $set: { revokedAt: new Date() } });
     await User.findByIdAndUpdate(
       req.user._id,
       {
@@ -224,10 +233,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
   }
 
   try {
-    const refreshSecret =
-      process.env.REFRESH_TOKEN_SECRET ||
-      process.env.JWT_REFRESH_SECRET ||
-      "patra_jwt_refresh_secret_super_secure_key_987654321";
+    const refreshSecret = env.REFRESH_TOKEN_SECRET;
 
     const decodedToken = jwt.verify(incomingRefreshToken, refreshSecret) as {
       _id?: string;
@@ -242,15 +248,13 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
       throw new ApiError(401, "Invalid Refresh Token");
     }
 
-    if (!user.refreshToken || incomingRefreshToken !== user.refreshToken) {
-      throw new ApiError(401, "Refresh token expired or already used");
-    }
-
-    const {
-      accessToken,
-      refreshToken: newRefreshToken,
-      token,
-    } = await generateAccessAndRefreshToken(user._id);
+    let tokens!: Awaited<ReturnType<typeof generateAccessAndRefreshToken>>;
+    await mongoose.connection.transaction(async session => {
+      const consumed = await RefreshToken.findOneAndUpdate({ userId: user._id, tokenHash: tokenHash(incomingRefreshToken), revokedAt: { $exists: false }, expiresAt: { $gt: new Date() } }, { $set: { revokedAt: new Date() } }, { new: true, session });
+      if (!consumed) throw new ApiError(401, "Refresh token expired or already used");
+      tokens = await generateAccessAndRefreshToken(user._id, session);
+    });
+    const { accessToken, refreshToken: newRefreshToken, token } = tokens;
 
     return res
       .status(200)
@@ -302,6 +306,7 @@ export const changeCurrentPassword = asyncHandler(async (req: Request, res: Resp
 
   user.password = newPassword;
   await user.save({ validateBeforeSave: false });
+  await RefreshToken.updateMany({ userId: user._id, revokedAt: { $exists: false } }, { $set: { revokedAt: new Date() } });
 
   return res.status(200).json(new ApiResponse(200, {}, "Password Changed Successfully"));
 });

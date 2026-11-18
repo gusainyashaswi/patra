@@ -1,3 +1,4 @@
+import { loginLimit } from "../middleware/login-limit.js";
 import { Router } from "express";
 import {
   registerUser,
@@ -17,7 +18,7 @@ authRouter.use(ensureDbConnected);
 
 // Public routes
 authRouter.route("/register").post(registerUser);
-authRouter.route("/login").post(loginUser);
+authRouter.route("/login").post(loginLimit, loginUser);
 authRouter.route("/refresh").post(refreshAccessToken);
 authRouter.route("/refresh-token").post(refreshAccessToken);
 
