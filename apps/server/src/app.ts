@@ -6,6 +6,7 @@ import { authRouter } from "./routes/auth.routes.js";
 import { orgRouter } from "./routes/orgs.routes.js";
 import { publicImageRouter } from "./routes/uploads.routes.js";
 import { env } from "./config/env.js";
+import { isDatabaseReady } from "./db/index.js";
 
 export const app = express();
 
@@ -30,13 +31,24 @@ app.get("/", (_req, res) => {
   res.json({ status: "ok", message: "WELCOME TO PATRA API" });
 });
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
-});
+const liveness = (_req: express.Request, res: express.Response) => {
+  res.json({ status: "ok", service: "patra-api" });
+};
 
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok" });
-});
+const readiness = (_req: express.Request, res: express.Response) => {
+  const database = isDatabaseReady();
+  const status = database ? 200 : 503;
+
+  res.status(status).json({
+    status: database ? "ready" : "not_ready",
+    dependencies: { mongodb: database ? "ready" : "not_ready" },
+  });
+};
+
+app.get("/health", liveness);
+app.get("/api/health", liveness);
+app.get("/ready", readiness);
+app.get("/api/ready", readiness);
 
 // API Routes
 app.use("/api/auth", authRouter);

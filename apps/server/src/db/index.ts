@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { DB_NAME } from "../constants.js";
 
+export function isDatabaseReady(): boolean {
+  return mongoose.connection.readyState === 1;
+}
+
 export const connectDB = async (): Promise<typeof mongoose | null> => {
   try {
     const rawUri = process.env.MONGODB_URI || process.env.MONGO_URL;
