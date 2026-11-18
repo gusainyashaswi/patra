@@ -1,6 +1,6 @@
 import { Schema, model, type Types } from "mongoose";
 import { schemaOptions } from "./base.js";
-import { SUPPRESSION_REASONS, type SuppressionReason } from "../lib/enums.js";
+import { SUPPRESSION_REASONS, type SuppressionReason } from "@patra/shared/enums";
 
 export interface IContact {
   organizationId: Types.ObjectId;

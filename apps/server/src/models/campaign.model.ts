@@ -7,7 +7,7 @@ import {
   type CampaignStatus,
   type CampaignPriority,
   type RecipientStatus,
-} from "../lib/enums.js";
+} from "@patra/shared/enums";
 
 export interface ICampaignCounters {
   totalRecipients: number;

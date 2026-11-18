@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 import { WebhookEvent } from "../models/infra.model.js";
-import type { RecipientStatus } from "../lib/enums.js";
+import type { RecipientStatus } from "@patra/shared/enums";
 
 const MAX_SIGNATURE_AGE_SECONDS = 5 * 60;
 

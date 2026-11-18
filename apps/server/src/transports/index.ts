@@ -28,6 +28,10 @@ export function clearTransportCache(): void {
   transportCache.clear();
 }
 
+export function invalidateTransportCache(transportId: string): void {
+  transportCache.delete(transportId);
+}
+
 export async function getOrBuildTransport(
   transportId: string,
   organizationId: string,
@@ -37,6 +41,10 @@ export async function getOrBuildTransport(
     transportCache.set(transportId, fakeTransport);
     return fakeTransport;
   }
+
+  // The cache is authoritative until a transport mutation explicitly invalidates it.
+  const cached = transportCache.get(transportId);
+  if (cached) return cached;
 
   const transport = await MailTransport.findOne({
     _id: transportId,
@@ -48,8 +56,6 @@ export async function getOrBuildTransport(
   }
 
   if (transport.status !== "VERIFIED") throw new PermanentError("Transport is not verified");
-  const cached = transportCache.get(transportId);
-  if (cached) return cached;
   let adapter: IMailTransportAdapter;
 
   switch (transport.type) {

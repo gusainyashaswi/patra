@@ -5,7 +5,7 @@ import {
   TRANSPORT_STATUSES,
   type TransportType,
   type TransportStatus,
-} from "../lib/enums.js";
+} from "@patra/shared/enums";
 
 export interface IMailTransport {
   organizationId: Types.ObjectId;

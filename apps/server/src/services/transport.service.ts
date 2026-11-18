@@ -3,6 +3,7 @@ import { getResendTransport, readResendDomains } from "./resend.service.js";
 import { transportRepo } from "../repositories/transport.repo.js";
 import { encrypt } from "../lib/crypto.js";
 import type { CreateTransportBody } from "../schemas/transport.schema.js";
+import { invalidateTransportCache } from "../transports/index.js";
 
 export const list = (orgId: string) => transportRepo.list(orgId);
 
@@ -33,6 +34,7 @@ export async function checkConnection(orgId: string, id: string) {
   }
   transport.lastTestedAt = new Date();
   await transport.save();
+  invalidateTransportCache(transport.id);
   return {
     id: transport.id,
     status: transport.status,
