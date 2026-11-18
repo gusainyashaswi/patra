@@ -91,6 +91,8 @@ export async function startSend(
       organizationId: orgOid,
       campaignId: campaignOid,
       contactId: c._id,
+      mergeData: contactData,
+      senderSnapshot: { displayName: senderIdentity.displayName, fromEmail: senderIdentity.fromEmail, replyTo: senderIdentity.replyTo },
       email: c.email.toLowerCase().trim(),
       status: missingVariables.length > 0 ? ("SKIPPED" as const) : ("QUEUED" as const),
       error:

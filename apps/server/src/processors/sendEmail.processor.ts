@@ -128,7 +128,7 @@ export async function sendEmailProcessor(
         : (contact.customFields as Record<string, unknown>);
   }
 
-  const contactData: Record<string, unknown> = {
+  const contactData: Record<string, unknown> = recipient.mergeData ?? {
     name: contact?.name || "",
     email: recipient.email,
     ...customFields,
@@ -157,9 +157,14 @@ export async function sendEmailProcessor(
   // 9. Load cached transport adapter and send
   const transportAdapter = await getOrBuildTransport(transportId, organizationId.toString());
   const idempotencyKey = `${campaignId}:${recipientId}`;
-  const fromAddress = senderIdentity.displayName
-    ? `"${senderIdentity.displayName}" <${senderIdentity.fromEmail}>`
-    : senderIdentity.fromEmail;
+  const sender = recipient.senderSnapshot ?? senderIdentity;
+  if (sender.fromEmail.split("@").at(-1) !== domain.name) {
+    await markRecipientFailed(recipientId, campaignId, "Snapshot sender domain does not match");
+    return { status: "permanent_failure" };
+  }
+  const fromAddress = sender.displayName
+    ? `"${sender.displayName}" <${sender.fromEmail}>`
+    : sender.fromEmail;
 
   try {
     // Recheck just before provider dispatch, including after a retry or pause.
@@ -173,7 +178,7 @@ export async function sendEmailProcessor(
     const sendResult = await transportAdapter.send({
       to: recipient.email,
       from: fromAddress,
-      replyTo: senderIdentity.replyTo,
+      replyTo: sender.replyTo,
       subject: renderResult.subject,
       html: renderResult.html,
       text: renderResult.text,
