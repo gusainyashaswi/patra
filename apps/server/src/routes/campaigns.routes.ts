@@ -1,3 +1,5 @@
+import { csvCell } from "../lib/csv.js";
+import { RECIPIENT_STATUSES } from "../lib/enums.js";
 import { streamCampaign, publishCampaign } from "../services/campaign-events.js";
 import { Router } from "express";
 import { z } from "zod";
@@ -160,8 +162,29 @@ campaignRouter.get("/:id/stream", asyncHandler(async (req, res) => {
 const recipientQuery = z.object({
   page: z.coerce.number().int().min(0).default(0),
   limit: z.coerce.number().int().min(1).max(100).default(50),
-  status: z.string().optional(),
+  status: z.enum(RECIPIENT_STATUSES).optional(),
 });
+
+campaignRouter.get("/:id/recipients/export", asyncHandler(async (req, res) => {
+  const { orgId, id } = resourceParams.parse(req.params);
+  const { status } = recipientQuery.parse(req.query);
+  if (!await Campaign.exists({ _id: id, organizationId: orgId })) throw new ApiError(404, "Campaign not found");
+  res.type("text/csv").attachment("campaign-recipients.csv");
+  res.write("Email,Status,Error,Requires review\r\n");
+  const cursor = CampaignRecipient.find({ organizationId: orgId, campaignId: id, ...(status ? { status } : {}) }).sort({ _id: 1 }).cursor();
+  try {
+    for await (const row of cursor) {
+      if (res.destroyed) break;
+      if (!res.write([row.email, row.status, row.error, row.requiresReview ? "Yes" : "No"].map(csvCell).join(",") + "\r\n")) {
+        await new Promise<void>(resolve => {
+          const done = () => { res.off("drain", done); res.off("close", done); resolve(); };
+          res.once("drain", done); res.once("close", done);
+        });
+      }
+    }
+  } finally { await cursor.close(); }
+  res.end();
+}));
 
 campaignRouter.get(
   "/:id/recipients",

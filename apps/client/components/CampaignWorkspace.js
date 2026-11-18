@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api";
 import { useCampaignStream } from "@/lib/campaign-stream";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -68,6 +69,18 @@ function CampaignContent({ workspace, id, create }) {
     }, 250);
     return () => { active = false; clearTimeout(timer); };
   }, [workspace, create, form]);
+
+  async function exportResults() {
+    setBusy(true);
+    try {
+      const blob = await api(`/orgs/${workspace.org.id}/campaigns/${id}/recipients/export${status ? `?status=${status}` : ""}`, { token: workspace.token, responseType: "blob" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = "campaign-recipients.csv"; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setError(error.message); }
+    finally { setBusy(false); }
+  }
 
   async function save(event) {
     event.preventDefault();
@@ -152,13 +165,14 @@ function CampaignContent({ workspace, id, create }) {
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
             {Object.entries(data.counters).map(([key, value]) => <Card key={key} className="p-4"><p className="text-sm text-muted">{key.replace(/Count$/, "").replace("totalRecipients", "Recipients")}</p><p className="mt-2 text-3xl font-semibold">{value}</p></Card>)}
           </div>
+          <Button variant="secondary" loading={busy} onClick={exportResults}>Export results</Button>
           <Field label="Recipient status" htmlFor="recipient-status">
             <Select id="recipient-status" value={status} onChange={event => { setStatus(event.target.value); setPage(0); }}>
               {["", "QUEUED", "SENT", "DELIVERED", "FAILED", "SKIPPED", "BOUNCED", "OPENED", "CLICKED", "COMPLAINED"].map(value => <option key={value} value={value}>{value || "All statuses"}</option>)}
             </Select>
           </Field>
           <Table><thead><tr><Th>Email</Th><Th>Status</Th><Th>Error</Th></tr></thead><tbody>
-            {recipients?.rows.map(row => <tr key={row.id}><Td>{row.email}</Td><Td><StatusBadge status={row.status} /></Td><Td>{row.error || "—"}</Td></tr>)}
+            {recipients?.rows.map(row => <tr key={row.id}><Td>{row.email}</Td><Td><StatusBadge status={row.status} /></Td><Td>{row.requiresReview ? `Review required: ${row.error || "Delivery uncertain"}` : row.error || "—"}</Td></tr>)}
           </tbody></Table>
           {!recipients?.total && <p className="py-5 text-muted">No recipients for this selection.</p>}
           <div className="mt-5 flex items-center gap-3">

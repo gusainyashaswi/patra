@@ -63,4 +63,16 @@ describe("MVP completion", () => {
     } finally { controller.abort(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   });
 
+  it("exports only filtered recipients and rejects invalid statuses", async () => {
+    const ctx = await seedTestContext();
+    const campaign = await Campaign.create({ organizationId: ctx.organization.id, name: "Export", templateVersionId: ctx.templateVersion.id, senderIdentityId: ctx.sender.id, listId: ctx.list.id });
+    await startSend(ctx.organization.id, campaign.id);
+    const path = `/api/orgs/${ctx.organization.id}/campaigns/${campaign.id}/recipients/export`;
+    const result = await request(app).get(path + "?status=SKIPPED").auth(ctx.accessToken, { type: "bearer" });
+    expect(result.status).toBe(200);
+    expect(result.text).toContain("charlie@test.com");
+    expect(result.text).not.toContain("alice@test.com");
+    expect((await request(app).get(path + "?status=INVALID").auth(ctx.accessToken, { type: "bearer" })).status).toBe(400);
+  });
+
 });
