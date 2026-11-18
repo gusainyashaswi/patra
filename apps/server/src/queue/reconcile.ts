@@ -24,7 +24,7 @@ export async function reconcileOrphanedRecipients(
   for (const recipient of orphans) {
     // Check if campaign is valid and not paused/cancelled
     const campaign = await Campaign.findById(recipient.campaignId);
-    if (!campaign || campaign.status === "PAUSED" || campaign.status === "CANCELLED") {
+    if (!campaign || !["QUEUED", "SENDING"].includes(campaign.status)) {
       continue;
     }
 

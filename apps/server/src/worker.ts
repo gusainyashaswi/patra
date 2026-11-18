@@ -17,12 +17,14 @@ import {
 
 const activeWorkers = new Map<string, Worker<SendEmailJobData>>();
 let isShuttingDown = false;
+let discoveryTimer: ReturnType<typeof setInterval> | undefined;
 
 export function createSendWorker(
   transportId: string,
   ratePerSecond?: number,
   processor: Processor<SendEmailJobData> = sendEmailProcessor,
 ): Worker<SendEmailJobData> {
+  isShuttingDown = false;
   const queueName = getSendQueueName(transportId);
   const existing = activeWorkers.get(queueName);
   if (existing) return existing;
@@ -30,7 +32,8 @@ export function createSendWorker(
   const worker = new Worker<SendEmailJobData>(queueName, processor, {
     connection: getRedisConnection(),
     concurrency: env.WORKER_CONCURRENCY,
-    lockDuration: 60000,
+    lockDuration: process.env.NODE_ENV === "test" ? Number(process.env.WORKER_LOCK_MS || 60000) : 60000,
+    stalledInterval: process.env.NODE_ENV === "test" ? 1000 : 30000,
     maxStalledCount: 1,
     limiter: ratePerSecond
       ? {
@@ -85,6 +88,7 @@ export function getActiveWorkers(): Map<string, Worker<SendEmailJobData>> {
 export async function stopAllWorkers(): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  clearInterval(discoveryTimer);
   console.log("[Worker] Graceful shutdown initiated...");
 
   try {
@@ -119,27 +123,28 @@ export async function stopAllWorkers(): Promise<void> {
   }
 }
 
+export async function discoverTransportWorkers(): Promise<void> {
+  const transports = await MailTransport.find({ status: "VERIFIED", type: "RESEND" });
+  for (const transport of transports) {
+    const worker = createSendWorker(transport.id, transport.ratePerSecond);
+    await worker.waitUntilReady();
+  }
+}
+
 export async function startWorker(): Promise<void> {
   console.log("[Worker] Starting Patra Worker Service...");
   await connectDB();
 
-  // Find all active transports and initialize their queues/workers
-  try {
-    const transports = await MailTransport.find({});
-    console.log(`[Worker] Found ${transports.length} transports to register.`);
-    for (const t of transports) {
-      createSendWorker(t._id.toString(), t.ratePerSecond);
-    }
-  } catch (err) {
-    console.warn("[Worker] Could not query transports on startup:", err);
-  }
-
-  try {
-    await setupReconciliationScheduler();
-    console.log("[Worker] Reconciliation scheduler started.");
-  } catch (err) {
-    console.warn("[Worker] Could not start reconciliation scheduler:", err);
-  }
+  await discoverTransportWorkers();
+  await setupReconciliationScheduler();
+  let discovering = false;
+  discoveryTimer = setInterval(async () => {
+    if (discovering || isShuttingDown) return;
+    discovering = true;
+    try { await discoverTransportWorkers(); }
+    catch (error) { console.error("Transport discovery failed", error); }
+    finally { discovering = false; }
+  }, 5000);
 
   // Register signal listeners for graceful shutdown
   process.on("SIGTERM", async () => {

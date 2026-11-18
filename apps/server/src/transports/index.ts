@@ -32,8 +32,6 @@ export async function getOrBuildTransport(
   transportId: string,
   organizationId: string,
 ): Promise<IMailTransportAdapter> {
-  const cached = transportCache.get(transportId);
-  if (cached) return cached;
 
   if (process.env.USE_FAKE_TRANSPORT === "true" || process.env.NODE_ENV === "test") {
     transportCache.set(transportId, fakeTransport);
@@ -49,6 +47,9 @@ export async function getOrBuildTransport(
     throw new PermanentError(`Transport ${transportId} not found`);
   }
 
+  if (transport.status !== "VERIFIED") throw new PermanentError("Transport is not verified");
+  const cached = transportCache.get(transportId);
+  if (cached) return cached;
   let adapter: IMailTransportAdapter;
 
   switch (transport.type) {
@@ -63,8 +64,7 @@ export async function getOrBuildTransport(
     case "SMTP":
     default: {
       // For testing or unsupported types, fall back to fakeTransport if configured
-      adapter = fakeTransport;
-      break;
+      throw new PermanentError("This transport type is not supported for campaign delivery");
     }
   }
 

@@ -1,7 +1,7 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 import { TemplateVersion } from "../models/template.model.js";
-import { SenderIdentity, Domain } from "../models/mailTransport.model.js";
+import { SenderIdentity, Domain, MailTransport } from "../models/mailTransport.model.js";
 import { Contact, List, Suppression } from "../models/audience.model.js";
 import { getSendQueue } from "../queue/send.queue.js";
 import { ApiError } from "../utils/apiError.js";
@@ -28,48 +28,26 @@ export async function startSend(
     throw new ApiError(404, "Campaign not found");
   }
 
-  // 2. Rule 2: Conditional lock status DRAFT -> QUEUED
-  const lockedCampaign = await Campaign.findOneAndUpdate(
-    { _id: campaignOid, organizationId: orgOid, status: "DRAFT" },
-    { $set: { status: "QUEUED", startedAt: new Date() } },
-    { new: true },
-  );
-
-  if (!lockedCampaign) {
-    throw new ApiError(
-      409,
-      "Campaign is not in DRAFT status or has already been queued",
-    );
+  if (existingCampaign.status !== "DRAFT") {
+    throw new ApiError(409, "Campaign has already been queued");
   }
-
-  // 3. Load dependencies: List, SenderIdentity, TemplateVersion
+  const lockedCampaign = existingCampaign;
   const [list, senderIdentity, templateVersion] = await Promise.all([
-    List.findOne({ _id: lockedCampaign.listId, organizationId: orgOid }),
-    SenderIdentity.findOne({
-      _id: lockedCampaign.senderIdentityId,
-      organizationId: orgOid,
-    }),
-    TemplateVersion.findOne({
-      _id: lockedCampaign.templateVersionId,
-      organizationId: orgOid,
-    }),
+    List.findOne({ _id: existingCampaign.listId, organizationId: orgOid }),
+    SenderIdentity.findOne({ _id: existingCampaign.senderIdentityId, organizationId: orgOid }),
+    TemplateVersion.findOne({ _id: existingCampaign.templateVersionId, organizationId: orgOid }),
   ]);
-
   if (!list) throw new ApiError(404, "Campaign audience list not found");
   if (!senderIdentity) throw new ApiError(404, "Campaign sender identity not found");
   if (!templateVersion) throw new ApiError(404, "Campaign template version not found");
-
-  // Resolve transportId
-  let transportId = senderIdentity.transportId?.toString();
-  if (!transportId) {
-    const domain = await Domain.findOne({
-      _id: senderIdentity.domainId,
-      organizationId: orgOid,
-    });
-    if (!domain || !domain.transportId) {
-      throw new ApiError(404, "Sender transport could not be resolved");
-    }
-    transportId = domain.transportId.toString();
+  const domain = await Domain.findOne({ _id: senderIdentity.domainId, organizationId: orgOid });
+  if (!domain?.verified || domain.name !== senderIdentity.fromEmail.split("@").at(-1)) {
+    throw new ApiError(400, "Sender domain must be verified before sending");
+  }
+  const transportId = domain.transportId.toString();
+  const transport = await MailTransport.findOne({ _id: transportId, organizationId: orgOid, status: "VERIFIED" });
+  if (!transport || transport.type !== "RESEND") {
+    throw new ApiError(400, "A verified Resend transport is required");
   }
 
   // 4. Load contacts and suppressions
@@ -122,31 +100,26 @@ export async function startSend(
     };
   });
 
-  // 6. Rule 4: insertMany with ordered: false, ignore duplicate key error (code 11000)
+  // Commit the send gate and recipients together. Redis dispatch can be recovered
+  // from these committed recipients if it fails or the process exits afterwards.
   let allRecipients: { _id: Types.ObjectId; status: string }[] = [];
-  if (recipientDocs.length > 0) {
-    try {
-      allRecipients = (await CampaignRecipient.insertMany(recipientDocs, {
-        ordered: false,
-      })) as any;
-    } catch (err: any) {
-      if (err.code === 11000 || err.writeErrors || err.name === "MongoBulkWriteError") {
-        allRecipients = (await CampaignRecipient.find({
-          campaignId: campaignOid,
-          organizationId: orgOid,
-        }).select("_id status")) as any;
-      } else {
-        throw err;
-      }
-    }
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const locked = await Campaign.findOneAndUpdate(
+        { _id: campaignOid, organizationId: orgOid, status: "DRAFT" },
+        { $set: { status: "QUEUED", startedAt: new Date(), "counters.totalRecipients": recipientDocs.length } },
+        { session },
+      );
+      if (!locked) throw new ApiError(409, "Campaign has already been queued");
+      allRecipients = recipientDocs.length
+        ? await CampaignRecipient.insertMany(recipientDocs, { session })
+        : [];
+    });
+  } finally {
+    await session.endSession();
   }
-
-  // 7. Update counters
   const totalRecipients = allRecipients.length;
-  await Campaign.updateOne(
-    { _id: campaignOid },
-    { $set: { "counters.totalRecipients": totalRecipients } },
-  );
 
   // 8. Rule 5: One BullMQ job per recipient, jobId = recipientId
   const queuedRecipients = allRecipients.filter((r) => r.status === "QUEUED");
@@ -165,7 +138,12 @@ export async function startSend(
   }));
 
   if (jobs.length > 0) {
-    await queue.addBulk(jobs);
+    try {
+      await queue.addBulk(jobs);
+    } catch (error) {
+      // The persisted QUEUED recipients are the recovery source of truth.
+      console.error("Queue dispatch deferred to reconciliation", campaignId, error instanceof Error ? error.message : "Redis failure");
+    }
   }
 
   return {

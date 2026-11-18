@@ -2,7 +2,7 @@ import { type Job, DelayedError } from "bullmq";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 import { TemplateVersion } from "../models/template.model.js";
 import { SenderIdentity, Domain } from "../models/mailTransport.model.js";
-import { Contact } from "../models/audience.model.js";
+import { Contact, Suppression } from "../models/audience.model.js";
 import { renderEmail } from "../services/render.service.js";
 import {
   getOrBuildTransport,
@@ -108,19 +108,12 @@ export async function sendEmailProcessor(
     return { status: "permanent_failure", error: "Sender identity missing" };
   }
 
-  // 6. Resolve transportId from SenderIdentity or Domain
-  let transportId = senderIdentity.transportId?.toString();
-  if (!transportId) {
-    const domain = await Domain.findOne({
-      _id: senderIdentity.domainId,
-      organizationId,
-    });
-    if (!domain || !domain.transportId) {
-      await markRecipientFailed(recipientId, campaignId, "Sender domain or transport not found");
-      return { status: "permanent_failure", error: "Transport resolution failed" };
-    }
-    transportId = domain.transportId.toString();
+  const domain = await Domain.findOne({ _id: senderIdentity.domainId, organizationId });
+  if (!domain?.verified || domain.name !== senderIdentity.fromEmail.split("@").at(-1)) {
+    await markRecipientFailed(recipientId, campaignId, "Sender domain is not verified");
+    return { status: "permanent_failure" };
   }
+  const transportId = domain.transportId.toString();
 
   // 7. Prepare contact data for variable replacement
   let customFields: Record<string, unknown> = {};
@@ -165,6 +158,14 @@ export async function sendEmailProcessor(
     : senderIdentity.fromEmail;
 
   try {
+    // Recheck just before provider dispatch, including after a retry or pause.
+    if (await Suppression.exists({ organizationId, email: recipient.email })) {
+      await CampaignRecipient.updateOne(
+        { _id: recipientId, organizationId, status: "QUEUED" },
+        { $set: { status: "SKIPPED", error: "Address is suppressed" } },
+      );
+      return { status: "suppressed" };
+    }
     const sendResult = await transportAdapter.send({
       to: recipient.email,
       from: fromAddress,
