@@ -6,3 +6,6 @@ export * from "./campaign.model.js";
 export * from "./infra.model.js";
 
 //
+
+export * from "./test-email.model.js";
+export { DailyQuota } from "../services/quota.service.js";

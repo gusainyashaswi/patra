@@ -5,6 +5,7 @@ import { app } from "../../app.js";
 import { setupTestDb, teardownTestDb, clearTestDb, seedTestContext } from "../testHelper.js";
 import { Campaign, CampaignRecipient } from "../../models/campaign.model.js";
 import { WebhookEvent } from "../../models/infra.model.js";
+import { TestEmail } from "../../models/test-email.model.js";
 import { Suppression } from "../../models/audience.model.js";
 
 const secret = "whsec_" + Buffer.from("local-webhook-test-secret").toString("base64");
@@ -73,4 +74,12 @@ describe("Resend webhooks", () => {
     expect((await CampaignRecipient.findById(recipient.id))?.error).toBe("quota");
     expect((await send("email.received", "inbound")).status).toBe(200);
   });
+  it("acknowledges tracked test mail without campaign counter changes", async () => {
+    const { campaign, recipient } = await fixture();
+    await TestEmail.create({ organizationId: recipient.organizationId, requestId: "test-request", recipient: recipient.email, providerMessageId: "test-message" });
+    expect((await send("email.delivered", "test-delivery", {}, "test-message")).status).toBe(200);
+    expect((await TestEmail.findOne({ providerMessageId: "test-message" }))?.status).toBe("DELIVERED");
+    expect((await Campaign.findById(campaign.id))?.counters.deliveredCount).toBe(0);
+  });
+
 });

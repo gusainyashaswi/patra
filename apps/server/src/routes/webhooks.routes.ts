@@ -1,3 +1,4 @@
+import { TestEmail } from "../models/test-email.model.js";
 import { Router, raw } from "express";
 import mongoose from "mongoose";
 import { Webhook } from "svix";
@@ -55,7 +56,14 @@ webhookRouter.post("/resend", raw({ type: "application/json", limit: "256kb" }),
       // A provider callback can beat the worker's message-ID commit. Leave it
       // unacknowledged so Resend retries, rather than permanently losing the event.
       const recipient = await CampaignRecipient.findOne({ providerMessageId: event.data.email_id }).session(session);
-      if (!recipient) throw new ApiError(503, "Message is not available yet; retry this event");
+      if (!recipient) {
+        const test = await TestEmail.findOne({ providerMessageId: event.data.email_id }).session(session);
+        if (!test) throw new ApiError(503, "Message is not available yet; retry this event");
+        await WebhookEvent.create([{ provider: "resend", providerEventId: eventId, type, payload: verified }], { session });
+        const ranks: Record<string, number> = { PENDING: 0, SENT: 0, DELIVERED: 1, OPENED: 2, CLICKED: 3, FAILED: 4, BOUNCED: 5, COMPLAINED: 6 };
+        if (transition.rank > (ranks[test.status] ?? 0)) { test.status = transition.status; await test.save({ session }); }
+        return;
+      }
       const scope = { organizationId: recipient.organizationId, _id: recipient.campaignId };
       if (!(await Campaign.exists(scope).session(session))) throw new ApiError(503, "Campaign is not available");
       await WebhookEvent.create([{ provider: "resend", providerEventId: eventId, type, payload: verified }], { session });

@@ -1,3 +1,4 @@
+import { TestEmail } from "../models/test-email.model.js";
 import { z } from "zod";
 import { decrypt } from "../lib/crypto.js";
 import { Domain, SenderIdentity } from "../models/mailTransport.model.js";
@@ -23,6 +24,9 @@ export async function sendTemplateTest(
   if (!z.string().email().safeParse(recipient).success || /[\r\n<>]/.test(sender.displayName)) {
     throw new ApiError(400, "Check the account email and sender name before sending.");
   }
+  const previous = await TestEmail.findOne({ organizationId, requestId });
+  if (previous?.providerMessageId) return { id: previous.providerMessageId, recipient: previous.recipient };
+  await TestEmail.updateOne({ organizationId, requestId }, { $setOnInsert: { recipient } }, { upsert: true });
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -40,6 +44,7 @@ export async function sendTemplateTest(
     });
     if (!response.ok) throw new ApiError(502, `Resend rejected the test send (HTTP ${response.status}). Check the key and sender in Settings.`);
     const { id } = z.object({ id: z.string().min(1) }).parse(await response.json());
+    await TestEmail.updateOne({ organizationId, requestId }, { $set: { providerMessageId: id, status: "SENT" } });
     return { id, recipient };
   } catch (error) {
     if (error instanceof ApiError) throw error;
