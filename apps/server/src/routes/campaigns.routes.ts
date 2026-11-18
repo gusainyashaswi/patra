@@ -116,7 +116,10 @@ campaignRouter.post(
     );
 
     if (!campaign) {
-      throw new ApiError(400, "Only QUEUED or SENDING campaigns can be paused");
+      const current = await Campaign.findOne({ _id: id, organizationId: orgId });
+      if (!current) throw new ApiError(404, "Campaign not found");
+      if (current.status === "PAUSED") return res.json({ data: current });
+      throw new ApiError(409, "Only QUEUED or SENDING campaigns can be paused");
     }
 
     res.json({ data: campaign });
@@ -134,7 +137,10 @@ campaignRouter.post(
     );
 
     if (!campaign) {
-      throw new ApiError(400, "Only PAUSED campaigns can be resumed");
+      const current = await Campaign.findOne({ _id: id, organizationId: orgId });
+      if (!current) throw new ApiError(404, "Campaign not found");
+      if (["QUEUED", "SENDING", "COMPLETED"].includes(current.status)) return res.json({ data: current });
+      throw new ApiError(409, "Only PAUSED campaigns can be resumed");
     }
 
     res.json({ data: campaign });

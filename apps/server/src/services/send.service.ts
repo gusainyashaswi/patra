@@ -1,3 +1,4 @@
+import { finishCampaign } from "./campaign-lifecycle.js";
 import mongoose, { Types } from "mongoose";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 import { TemplateVersion } from "../models/template.model.js";
@@ -148,6 +149,7 @@ export async function startSend(
     }
   }
 
+  await finishCampaign(organizationId, campaignId);
   return {
     campaignId,
     totalRecipients,

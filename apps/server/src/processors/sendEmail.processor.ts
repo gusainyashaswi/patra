@@ -1,3 +1,4 @@
+import { finishCampaign } from "../services/campaign-lifecycle.js";
 import mongoose from "mongoose";
 import { type Job, DelayedError } from "bullmq";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
@@ -42,6 +43,8 @@ export async function markRecipientFailed(
       );
     }
   });
+  const recipient = await CampaignRecipient.findById(recipientId);
+  if (recipient) await finishCampaign(String(recipient.organizationId), campaignId);
 }
 
 export async function sendEmailProcessor(
@@ -85,6 +88,8 @@ export async function sendEmailProcessor(
   if (campaign.status === "CANCELLED") {
     return { status: "campaign_cancelled" };
   }
+
+  await Campaign.updateOne({ _id: campaignId, organizationId, status: "QUEUED" }, { $set: { status: "SENDING" } });
 
   // 5. Load dependencies in parallel
   const [templateVersion, senderIdentity, contact] = await Promise.all([
@@ -151,6 +156,7 @@ export async function sendEmailProcessor(
       { _id: recipientId, status: "QUEUED" },
       { $set: { status: "SKIPPED", error: renderResult.error } },
     );
+    await finishCampaign(organizationId, campaignId);
     return { status: "skipped", reason: renderResult.error };
   }
 
@@ -173,6 +179,7 @@ export async function sendEmailProcessor(
         { _id: recipientId, organizationId, status: "QUEUED" },
         { $set: { status: "SKIPPED", error: "Address is suppressed" } },
       );
+      await finishCampaign(organizationId, campaignId);
       return { status: "suppressed" };
     }
     const sendResult = await transportAdapter.send({
@@ -205,6 +212,7 @@ export async function sendEmailProcessor(
       }
     });
 
+    await finishCampaign(organizationId, campaignId);
     return {
       status: "sent",
       providerMessageId: sendResult.providerMessageId,
