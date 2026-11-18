@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   type IMailTransportAdapter,
   type MailMessage,
@@ -41,18 +42,28 @@ export class FakeMailTransport implements IMailTransportAdapter {
     }
 
     const key = message.idempotencyKey;
-    const history = this.sends.get(key) || [];
-    history.push(message);
-    this.sends.set(key, history);
-    this.allSends.push(message);
-
-    // Persist to Redis so separate child processes (e.g. during kill tests) can be verified
+    const fingerprint = createHash("sha256").update(JSON.stringify(message)).digest("hex");
+    // Model the provider's idempotency store, including across worker restarts.
+    // The atomic script commits acceptance and our observable send count together.
+    const redis = getRedisConnection();
+    let accepted: number;
     try {
-      const redis = getRedisConnection();
-      await redis.hincrby("fake_transport:counts", key, 1);
-      await redis.rpush("fake_transport:all", key);
-    } catch {
-      // Redis might not be available in standalone unit tests
+      accepted = Number(await redis.eval(`
+        local previous = redis.call('GET', KEYS[1])
+        if previous then
+          if previous ~= ARGV[1] then return -1 end
+          return 0
+        end
+        redis.call('SET', KEYS[1], ARGV[1], 'EX', 86400)
+        redis.call('HINCRBY', KEYS[2], ARGV[2], 1)
+        redis.call('RPUSH', KEYS[3], ARGV[2])
+        return 1
+      `, 3, `fake_transport:idempotency:${key}`, "fake_transport:counts", "fake_transport:all", fingerprint, key));
+    } catch { throw new TransientError("Fake provider idempotency store unavailable"); }
+    if (accepted === -1) throw new PermanentError("Idempotency key reused with different email content");
+    if (accepted === 1) {
+      this.sends.set(key, [message]);
+      this.allSends.push(message);
     }
 
     return {
