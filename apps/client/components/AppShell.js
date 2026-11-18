@@ -1,11 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon, Logo } from "./icons";
 import { cx } from "./ui";
-import { me } from "@/lib/mock";
+import { api } from "@/lib/api";
+import { clearSession, sessionToken, SESSION_EVENT } from "@/lib/session";
+
+function SessionControl() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const token = sessionToken();
+      if (!token) { setUser(null); return; }
+      try {
+        const { data } = await api("/auth/me", { token });
+        if (active) { setUser(data); setError(""); }
+      } catch (error) {
+        if (active) setError(error.message);
+      }
+    }
+    load();
+    window.addEventListener(SESSION_EVENT, load);
+    window.addEventListener("storage", load);
+    return () => {
+      active = false;
+      window.removeEventListener(SESSION_EVENT, load);
+      window.removeEventListener("storage", load);
+    };
+  }, []);
+  async function logout() {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/auth/logout", { method: "POST", token: sessionToken(), body: {} });
+      clearSession();
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      setError(error.message);
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="relative">
+      {user ? <button onClick={logout} disabled={busy} aria-label={`Log out ${user.name || user.email}`}
+        className="flex h-11 items-center gap-2 px-3 text-sm text-on-nav cursor-pointer disabled:opacity-50">
+        <span className="hidden sm:inline">{busy ? "Logging out…" : user.name || user.email}</span><Icon.LogOut size={16} />
+      </button> : <Link href="/login" className="inline-flex h-11 items-center px-3 text-sm text-on-nav">Sign in</Link>}
+      {error && <p role="alert" className="absolute right-0 top-full z-50 w-64 border border-line bg-surface p-3 text-sm text-danger">{error}</p>}
+    </div>
+  );
+}
 
 const nav = [
   { href: "/dashboard", label: "Overview" },
@@ -85,14 +136,7 @@ export default function AppShell({ children }) {
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
-            <Link
-              href="/login"
-              aria-label={`Log out ${me.name}`}
-              title="Log out"
-              className="hidden h-10 items-center gap-2.5 whitespace-nowrap px-3 font-mono xl:inline-flex text-[12px] font-bold uppercase tracking-[0.12em] text-on-nav/70 hover:bg-white/10 hover:text-on-nav cursor-pointer transition-colors"
-            >
-              {me.name.split(" ")[0]} <Icon.LogOut size={15} />
-            </Link>
+            <SessionControl />
             <Link
               href="/campaigns/new"
               className="hidden h-11 items-center gap-2 whitespace-nowrap bg-accent px-5 font-mono text-[13px] font-bold uppercase tracking-[0.1em] text-on-accent hover:bg-accent-hover sm:inline-flex cursor-pointer transition-colors"

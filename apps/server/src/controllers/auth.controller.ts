@@ -242,7 +242,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
       throw new ApiError(401, "Invalid Refresh Token");
     }
 
-    if (user.refreshToken && incomingRefreshToken !== user.refreshToken) {
+    if (!user.refreshToken || incomingRefreshToken !== user.refreshToken) {
       throw new ApiError(401, "Refresh token expired or already used");
     }
 

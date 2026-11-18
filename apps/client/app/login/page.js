@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Icon, Logo } from "@/components/icons";
 import { Button, Field, Input } from "@/components/ui";
+import { saveSession } from "@/lib/session";
 import { api } from "@/lib/api";
 
 export default function LoginPage() {
@@ -29,7 +30,7 @@ export default function LoginPage() {
       const result = await api("/auth/login", { method: "POST", body: { email, password } });
       const token = result.data?.accessToken ?? result.data?.token ?? result.token;
       if (typeof token !== "string" || !token) throw new Error("Login did not return an access token.");
-      localStorage.setItem("patra-token", token);
+      saveSession(token);
       router.push("/dashboard");
     } catch (err) {
       setFormError(err.status === 401 ? "That email and password don't match." : err.message);
