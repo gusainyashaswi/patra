@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { Icon, Logo } from "./icons";
 import { cx } from "./ui";
 import { me } from "@/lib/mock";
+import { api } from "@/lib/api";
 
 const nav = [
   { href: "/dashboard", label: "Overview" },
@@ -43,12 +44,28 @@ function ThemeToggle() {
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
   // The designer needs the full viewport; it renders its own chrome.
   const bare = /^\/templates\/[^/]+$/.test(pathname);
   // The overview is a single-screen dashboard on desktop: lock it to the viewport.
   const fit = pathname === "/dashboard";
+  async function logout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch {
+      // The local session should still end if the API is unreachable or already expired.
+    } finally {
+      localStorage.removeItem("patra-token");
+      router.replace("/login");
+      router.refresh();
+    }
+  }
+
   if (bare) return <>{children}</>;
 
   return (
@@ -85,14 +102,16 @@ export default function AppShell({ children }) {
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
-            <Link
-              href="/login"
+            <button
+              type="button"
+              onClick={logout}
+              disabled={loggingOut}
               aria-label={`Log out ${me.name}`}
               title="Log out"
               className="hidden h-10 items-center gap-2.5 whitespace-nowrap px-3 font-mono xl:inline-flex text-[12px] font-bold uppercase tracking-[0.12em] text-on-nav/70 hover:bg-white/10 hover:text-on-nav cursor-pointer transition-colors"
             >
-              {me.name.split(" ")[0]} <Icon.LogOut size={15} />
-            </Link>
+              {loggingOut ? "Logging out…" : me.name.split(" ")[0]} <Icon.LogOut size={15} />
+            </button>
             <Link
               href="/campaigns/new"
               className="hidden h-11 items-center gap-2 whitespace-nowrap bg-accent px-5 font-mono text-[13px] font-bold uppercase tracking-[0.1em] text-on-accent hover:bg-accent-hover sm:inline-flex cursor-pointer transition-colors"

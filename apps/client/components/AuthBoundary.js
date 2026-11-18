@@ -12,9 +12,7 @@ export default function AuthBoundary({ children }) {
 
   useEffect(() => {
     let active = true;
-    const token = localStorage.getItem("patra-token");
-
-    api("/auth/me", { token: token || undefined })
+    api("/auth/me")
       .then(() => {
         if (active) setValidated(true);
       })

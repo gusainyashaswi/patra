@@ -10,6 +10,6 @@ export async function uploadTemplateImage(workspace, file) {
     throw new Error("Choose a PNG or JPEG no larger than 2 MB.");
   }
   const path = `/orgs/${workspace.org.id}/uploads`;
-  const { data } = await api(path, { token: workspace.token, method: "POST", body: file });
+  const { data } = await api(path, { method: "POST", body: file });
   return `${API_URL.replace(/\/$/, "")}${data.path}`;
 }

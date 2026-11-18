@@ -7,15 +7,13 @@ export function useWorkspace() {
   useEffect(() => {
     let active = true;
     async function load() {
-      const storedToken = localStorage.getItem("patra-token");
-      const token = storedToken && storedToken !== "undefined" ? storedToken : undefined;
       try {
-        const { data } = await api("/orgs", { token });
+        const { data } = await api("/orgs");
         if (!data.length) throw new Error("Your account has no organization.");
         const requested = new URLSearchParams(location.search).get("org");
         const org = requested ? data.find((item) => item.id === requested) : data[0];
         if (!org) throw new Error("This organization is unavailable.");
-        if (active) setWorkspace({ token, org });
+        if (active) setWorkspace({ org });
       } catch (error) {
         if (active) setError(error);
       }
@@ -27,7 +25,7 @@ export function useWorkspace() {
 }
 
 export async function workspaceRequest(workspace, path, options) {
-  const { data } = await api(`/orgs/${workspace.org.id}${path}`, { ...options, token: workspace.token });
+  const { data } = await api(`/orgs/${workspace.org.id}${path}`, options);
   return data;
 }
 

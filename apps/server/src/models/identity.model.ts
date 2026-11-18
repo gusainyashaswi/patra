@@ -10,7 +10,6 @@ export interface IUser {
   fullName?: string;
   password?: string;
   passwordHash?: string;
-  refreshToken?: string;
   avatar?: string;
   isPlatformAdmin: boolean;
 }
@@ -41,10 +40,6 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     password: {
       type: String,
       required: [true, "Password is required"],
-      select: false,
-    },
-    refreshToken: {
-      type: String,
       select: false,
     },
     avatar: {

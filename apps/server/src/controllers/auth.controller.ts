@@ -1,9 +1,7 @@
 import type { Request, Response } from "express";
+import { createHash } from "node:crypto";
 import jwt from "jsonwebtoken";
-import { User } from "../models/identity.model.js";
-import { Organization } from "../models/identity.model.js";
-import { Role } from "../models/identity.model.js";
-import { Membership } from "../models/identity.model.js";
+import { User, Organization, Role, Membership, RefreshToken } from "../models/identity.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -14,6 +12,18 @@ export const cookieOptions = {
   secure: process.env.NODE_ENV === "production",
   sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax",
 };
+
+export function hashRefreshToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function getRefreshTokenExpiry(token: string): Date {
+  const decoded = jwt.decode(token);
+  if (!decoded || typeof decoded === "string" || typeof decoded.exp !== "number") {
+    throw new ApiError(500, "Generated refresh token is missing an expiry.");
+  }
+  return new Date(decoded.exp * 1000);
+}
 
 export const generateAccessAndRefreshToken = async (userId: any) => {
   try {
@@ -49,10 +59,13 @@ export const generateAccessAndRefreshToken = async (userId: any) => {
     const accessToken = user.generateAccessToken(permissions);
     const refreshToken = user.generateRefreshToken();
 
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
+    await RefreshToken.create({
+      userId: user._id,
+      tokenHash: hashRefreshToken(refreshToken),
+      expiresAt: getRefreshTokenExpiry(refreshToken),
+    });
 
-    return { accessToken, refreshToken, token: accessToken };
+    return { accessToken, refreshToken };
   } catch (error: any) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(
@@ -121,8 +134,8 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
     { upsert: true, new: true },
   );
 
-  const { accessToken, refreshToken, token } = await generateAccessAndRefreshToken(user._id);
-  const createdUser = await User.findById(user._id).select("-password -refreshToken");
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
+  const createdUser = await User.findById(user._id).select("-password");
 
   if (!createdUser) {
     throw new ApiError(500, "Something went wrong while registering the user");
@@ -137,9 +150,6 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
         201,
         {
           user: createdUser,
-          accessToken,
-          refreshToken,
-          token,
           organization: org,
         },
         "User Created Successfully!",
@@ -157,7 +167,7 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
   const existedUser = await User.findOne({
     $or: [{ email: identifier }],
-  }).select("+password +refreshToken");
+  }).select("+password");
 
   if (!existedUser) {
     throw new ApiError(401, "That email and password don't match.");
@@ -168,8 +178,8 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(401, "That email and password don't match.");
   }
 
-  const { accessToken, refreshToken, token } = await generateAccessAndRefreshToken(existedUser._id);
-  const loggedInUser = await User.findById(existedUser._id).select("-password -refreshToken");
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(existedUser._id);
+  const loggedInUser = await User.findById(existedUser._id).select("-password");
 
   const membership = await Membership.findOne({ userId: existedUser._id }).populate(
     "organizationId roleId",
@@ -184,9 +194,6 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
         200,
         {
           user: loggedInUser,
-          accessToken,
-          refreshToken,
-          token,
           membership,
         },
         "User LoggedIn Successfully",
@@ -196,17 +203,13 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
 export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
   if (req.user?._id) {
-    await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        $unset: {
-          refreshToken: 1,
-        },
-      },
-      {
-        new: true,
-      },
-    );
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      await RefreshToken.updateOne(
+        { userId: req.user._id, tokenHash: hashRefreshToken(refreshToken), revokedAt: null },
+        { $set: { revokedAt: new Date() } },
+      );
+    }
   }
 
   return res
@@ -232,20 +235,29 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
     };
 
     const userId = decodedToken?._id || decodedToken?.sub || decodedToken?.id;
-    const user = await User.findById(userId).select("+refreshToken");
+    const refreshSession = await RefreshToken.findOneAndUpdate(
+      {
+        userId,
+        tokenHash: hashRefreshToken(incomingRefreshToken),
+        revokedAt: null,
+        expiresAt: { $gt: new Date() },
+      },
+      { $set: { revokedAt: new Date() } },
+      { new: true },
+    );
 
-    if (!user) {
+    if (!refreshSession) {
       throw new ApiError(401, "Invalid Refresh Token");
     }
 
-    if (user.refreshToken && incomingRefreshToken !== user.refreshToken) {
-      throw new ApiError(401, "Refresh token expired or already used");
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(401, "Invalid Refresh Token");
     }
 
     const {
       accessToken,
       refreshToken: newRefreshToken,
-      token,
     } = await generateAccessAndRefreshToken(user._id);
 
     return res
@@ -255,7 +267,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
       .json(
         new ApiResponse(
           200,
-          { accessToken, refreshToken: newRefreshToken, token },
+          {},
           "Access token Refreshed",
         ),
       );

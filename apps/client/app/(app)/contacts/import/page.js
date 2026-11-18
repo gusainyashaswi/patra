@@ -91,7 +91,7 @@ export default function ImportPage() {
     try {
       const path = importPath("/rejected", file.name);
       const blob = await api(`/orgs/${workspace.org.id}${path}`, {
-        method: "POST", token: workspace.token, body: uploadBody(file), responseType: "blob",
+        method: "POST", body: uploadBody(file), responseType: "blob",
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");

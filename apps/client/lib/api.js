@@ -2,7 +2,7 @@
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api";
 
-export async function api(path, { method = "GET", body, token, responseType } = {}) {
+export async function api(path, { method = "GET", body, responseType } = {}) {
   let res;
   const binary = typeof Blob !== "undefined" && body instanceof Blob;
   try {
@@ -11,7 +11,6 @@ export async function api(path, { method = "GET", body, token, responseType } = 
       credentials: "include",
       headers: {
         "Content-Type": binary ? body.type || "application/octet-stream" : "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: binary ? body : body ? JSON.stringify(body) : undefined,
     });

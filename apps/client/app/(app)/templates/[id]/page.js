@@ -468,7 +468,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
     setSenderId("");
     try {
       const [{ data: user }, senders] = await Promise.all([
-        api("/auth/me", { token: workspace.token }),
+        api("/auth/me"),
         templateRequest(workspace, "/senders"),
       ]);
       setTestOptions({ recipient: user.email, senders });
@@ -507,12 +507,10 @@ function TemplateEditor({ source, isLocal, workspace }) {
   async function copyToWorkspace() {
     setBusy(true);
     try {
-      const token = localStorage.getItem("patra-token");
-      if (!token || token === "undefined") { router.push("/login"); return; }
-      const { data: orgs } = await api("/orgs", { token });
+      const { data: orgs } = await api("/orgs");
       if (!orgs.length) throw new Error("Your account has no organization.");
       const org = orgs[0];
-      const draft = await templateRequest({ token, org }, "/templates", { method: "POST", body: draftContent(tpl) });
+      const draft = await templateRequest({ org }, "/templates", { method: "POST", body: draftContent(tpl) });
       router.push(`/templates/${draft.id}?org=${org.id}`);
     } catch (error) { setSaveError(error.message); }
     finally { setBusy(false); }
