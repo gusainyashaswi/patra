@@ -13,6 +13,7 @@ import { requirePermission } from "../middleware/requirePermission.js";
 import { templateRouter } from "./templates.routes.js";
 import { uploadRouter } from "./uploads.routes.js";
 import { contactRouter, listRouter } from "./contacts.routes.js";
+import { campaignRouter } from "./campaigns.routes.js";
 
 export const orgRouter = Router();
 const scopedRouter = Router({ mergeParams: true });
@@ -35,6 +36,7 @@ scopedRouter.use("/templates", templateRouter);
 scopedRouter.use("/uploads", uploadRouter);
 scopedRouter.use("/contacts", contactRouter);
 scopedRouter.use("/lists", listRouter);
+scopedRouter.use("/campaigns", campaignRouter);
 scopedRouter.get("/domains", requirePermission("manage_senders"), asyncHandler(async (req, res) => {
   const data = await Domain.find({ organizationId: req.user!.organizationId }).sort({ name: 1 });
   res.json({ data });
