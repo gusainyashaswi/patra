@@ -121,6 +121,26 @@ describe("Integration: POST /api/orgs/:orgId/campaigns/:id/send", () => {
     const recipientsAfter = await CampaignRecipient.find({ campaignId: campaign._id });
     expect(recipientsAfter.length).toBe(3);
   });
+
+  it("allows exactly one of two simultaneous send requests to lock a draft campaign", async () => {
+    const campaign = await Campaign.create({
+      organizationId: ctx.organization._id,
+      name: "Concurrent send lock",
+      templateVersionId: ctx.templateVersion._id,
+      senderIdentityId: ctx.sender._id,
+      listId: ctx.list._id,
+      status: "DRAFT",
+    });
+    const url = `/api/orgs/${ctx.organization._id}/campaigns/${campaign._id}/send`;
+
+    const responses = await Promise.all([
+      request(app).post(url).set("Authorization", `Bearer ${ctx.accessToken}`).send(),
+      request(app).post(url).set("Authorization", `Bearer ${ctx.accessToken}`).send(),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([202, 409]);
+    expect(await CampaignRecipient.countDocuments({ campaignId: campaign._id })).toBe(ctx.contacts.length);
+  });
 });
 
 describe("Send setup regression", () => {

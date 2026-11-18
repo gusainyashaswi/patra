@@ -5,6 +5,7 @@ import { getRedisConnection } from "../lib/redis.js";
 import { getSendQueue } from "./send.queue.js";
 import { RECONCILE_QUEUE_NAME, RECONCILE_JOB_NAME } from "./names.js";
 import { completeFinishedCampaigns } from "../services/campaignLifecycle.service.js";
+import { dispatchPendingOutboxEvents } from "../services/dispatchOutbox.service.js";
 
 let reconcileQueue: Queue | null = null;
 let reconcileWorker: Worker | null = null;
@@ -62,6 +63,7 @@ export async function reconcileOrphanedRecipients(
   }
 
   await completeFinishedCampaigns();
+  await dispatchPendingOutboxEvents();
   return { checked: orphans.length, reEnqueued: reEnqueuedCount };
 }
 

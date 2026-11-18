@@ -17,6 +17,11 @@ export interface ICampaignCounters {
   failedCount: number;
 }
 
+export interface ICampaignDispatch {
+  status: "PENDING" | "DISPATCHED";
+  lastError?: string;
+}
+
 export interface ICampaign {
   organizationId: Types.ObjectId;
   name: string;
@@ -30,6 +35,7 @@ export interface ICampaign {
   startedAt?: Date;
   completedAt?: Date;
   counters: ICampaignCounters;
+  dispatch?: ICampaignDispatch;
 }
 
 const campaignSchema = new Schema<ICampaign>(
@@ -51,6 +57,10 @@ const campaignSchema = new Schema<ICampaign>(
       deliveredCount: { type: Number, default: 0 },
       bouncedCount: { type: Number, default: 0 },
       failedCount: { type: Number, default: 0 },
+    },
+    dispatch: {
+      status: { type: String, enum: ["PENDING", "DISPATCHED"] },
+      lastError: String,
     },
   },
   schemaOptions,
@@ -95,6 +105,8 @@ const campaignRecipientSchema = new Schema<ICampaignRecipient>(
   schemaOptions,
 );
 campaignRecipientSchema.index({ campaignId: 1, status: 1 });
+// Supports the periodic reconciliation query for stale queued recipients.
+campaignRecipientSchema.index({ status: 1, createdAt: 1 });
 campaignRecipientSchema.index({ organizationId: 1, email: 1, campaignId: 1 }, { unique: true });
 export const CampaignRecipient = model<ICampaignRecipient>(
   "CampaignRecipient",

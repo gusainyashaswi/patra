@@ -3,9 +3,10 @@ import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
 import { TemplateVersion } from "../models/template.model.js";
 import { SenderIdentity, Domain, MailTransport } from "../models/mailTransport.model.js";
 import { Contact, List, Suppression } from "../models/audience.model.js";
-import { getSendQueue } from "../queue/send.queue.js";
 import { ApiError } from "../utils/apiError.js";
 import { completeCampaignIfFinished } from "./campaignLifecycle.service.js";
+import { DispatchOutboxEvent } from "../models/infra.model.js";
+import { dispatchOutboxEvent, newDispatchOutboxEvent } from "./dispatchOutbox.service.js";
 
 export async function startSend(
   organizationId: string,
@@ -15,6 +16,7 @@ export async function startSend(
   totalRecipients: number;
   queuedCount: number;
   skippedCount: number;
+  dispatchPending: boolean;
 }> {
   const orgOid = new Types.ObjectId(organizationId);
   const campaignOid = new Types.ObjectId(campaignId);
@@ -29,10 +31,6 @@ export async function startSend(
     throw new ApiError(404, "Campaign not found");
   }
 
-  if (existingCampaign.status !== "DRAFT") {
-    throw new ApiError(409, "Campaign has already been queued");
-  }
-  const lockedCampaign = existingCampaign;
   const [list, senderIdentity, templateVersion] = await Promise.all([
     List.findOne({ _id: existingCampaign.listId, organizationId: orgOid }),
     SenderIdentity.findOne({ _id: existingCampaign.senderIdentityId, organizationId: orgOid }),
@@ -104,48 +102,40 @@ export async function startSend(
   // Commit the send gate and recipients together. Redis dispatch can be recovered
   // from these committed recipients if it fails or the process exits afterwards.
   let allRecipients: { _id: Types.ObjectId; status: string }[] = [];
+  let outboxEventId: Types.ObjectId | undefined;
+  const hasQueuedRecipients = recipientDocs.some((recipient) => recipient.status === "QUEUED");
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
       const locked = await Campaign.findOneAndUpdate(
         { _id: campaignOid, organizationId: orgOid, status: "DRAFT" },
-        { $set: { status: "QUEUED", startedAt: new Date(), "counters.totalRecipients": recipientDocs.length } },
+        { $set: {
+          status: "QUEUED",
+          startedAt: new Date(),
+          "counters.totalRecipients": recipientDocs.length,
+          "dispatch.status": hasQueuedRecipients ? "PENDING" : "DISPATCHED",
+        } },
         { session },
       );
       if (!locked) throw new ApiError(409, "Campaign has already been queued");
       allRecipients = recipientDocs.length
         ? await CampaignRecipient.insertMany(recipientDocs, { session })
         : [];
+      if (hasQueuedRecipients) {
+        const [outboxEvent] = await DispatchOutboxEvent.create(
+          [newDispatchOutboxEvent({ organizationId: orgOid, campaignId: campaignOid, transportId: domain.transportId })],
+          { session },
+        );
+        outboxEventId = outboxEvent._id;
+      }
     });
   } finally {
     await session.endSession();
   }
   const totalRecipients = allRecipients.length;
 
-  // 8. Rule 5: One BullMQ job per recipient, jobId = recipientId
   const queuedRecipients = allRecipients.filter((r) => r.status === "QUEUED");
-  const queue = getSendQueue(transportId);
-
-  const jobs = queuedRecipients.map((r) => ({
-    name: "sendEmail",
-    data: {
-      campaignId: campaignId,
-      recipientId: r._id.toString(),
-      organizationId: organizationId,
-    },
-    opts: {
-      jobId: r._id.toString(),
-    },
-  }));
-
-  if (jobs.length > 0) {
-    try {
-      await queue.addBulk(jobs);
-    } catch (error) {
-      // The persisted QUEUED recipients are the recovery source of truth.
-      console.error("Queue dispatch deferred to reconciliation", campaignId, error instanceof Error ? error.message : "Redis failure");
-    }
-  }
+  const dispatched = outboxEventId ? await dispatchOutboxEvent(outboxEventId.toString()) : true;
 
   // A fully skipped (or empty) campaign has no worker transition to trigger completion.
   await completeCampaignIfFinished(campaignId);
@@ -153,7 +143,8 @@ export async function startSend(
   return {
     campaignId,
     totalRecipients,
-    queuedCount: jobs.length,
-    skippedCount: totalRecipients - jobs.length,
+    queuedCount: queuedRecipients.length,
+    skippedCount: totalRecipients - queuedRecipients.length,
+    dispatchPending: !dispatched,
   };
 }

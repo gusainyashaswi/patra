@@ -9,6 +9,7 @@ services:
     image: mongo:7
     container_name: patra-mongo
     restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     environment:
       MONGO_INITDB_ROOT_USERNAME: patra
       MONGO_INITDB_ROOT_PASSWORD: patra
@@ -18,11 +19,25 @@ services:
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "mongosh --quiet -u patra -p patra --authenticationDatabase admin --eval \"db.hello().isWritablePrimary\" | grep true"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Initializes rs0 once; safely exits when the named replica set already exists.
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_started
+    restart: "no"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        until mongosh --host mongo:27017 -u patra -p patra --authenticationDatabase admin --quiet --eval "db.adminCommand('ping').ok" | grep 1; do sleep 1; done
+        mongosh --host mongo:27017 -u patra -p patra --authenticationDatabase admin --quiet --eval "try { rs.status().ok } catch (error) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo:27017'}]}) }"
 
   server:
     build:
@@ -33,11 +48,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      MONGODB_URI: mongodb://patra:patra@mongo:27017/patra?authSource=admin
+      MONGODB_URI: mongodb://patra:patra@mongo:27017/patra?authSource=admin&replicaSet=rs0
       REDIS_URL: redis://redis:6379
     depends_on:
       mongo:
-        condition: service_healthy
+        condition: service_started
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_started
 
@@ -49,11 +66,13 @@ services:
     stop_grace_period: 30s
     environment:
       NODE_ENV: production
-      MONGODB_URI: mongodb://patra:patra@mongo:27017/patra?authSource=admin
+      MONGODB_URI: mongodb://patra:patra@mongo:27017/patra?authSource=admin&replicaSet=rs0
       REDIS_URL: redis://redis:6379
     depends_on:
       mongo:
-        condition: service_healthy
+        condition: service_started
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_started
 
