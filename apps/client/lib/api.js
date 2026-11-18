@@ -8,6 +8,7 @@ export async function api(path, { method = "GET", body, token, responseType } = 
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
+      credentials: "include",
       headers: {
         "Content-Type": binary ? body.type || "application/octet-stream" : "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Icon, Logo } from "@/components/icons";
 import { Button, Field, Input } from "@/components/ui";
@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -30,7 +31,8 @@ export default function LoginPage() {
       const token = result.data?.accessToken ?? result.data?.token ?? result.token;
       if (typeof token !== "string" || !token) throw new Error("Login did not return an access token.");
       localStorage.setItem("patra-token", token);
-      router.push("/dashboard");
+      const nextPath = searchParams.get("next");
+      router.replace(nextPath?.startsWith("/") ? nextPath : "/dashboard");
     } catch (err) {
       setFormError(err.status === 401 ? "That email and password don't match." : err.message);
       setLoading(false);

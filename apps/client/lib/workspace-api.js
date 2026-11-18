@@ -7,11 +7,8 @@ export function useWorkspace() {
   useEffect(() => {
     let active = true;
     async function load() {
-      const token = localStorage.getItem("patra-token");
-      if (!token || token === "undefined") {
-        if (active) setWorkspace(null);
-        return;
-      }
+      const storedToken = localStorage.getItem("patra-token");
+      const token = storedToken && storedToken !== "undefined" ? storedToken : undefined;
       try {
         const { data } = await api("/orgs", { token });
         if (!data.length) throw new Error("Your account has no organization.");

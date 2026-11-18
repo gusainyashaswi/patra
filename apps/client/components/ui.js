@@ -351,7 +351,9 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   const ref = useRef(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -421,7 +423,9 @@ export function Dialog({ open, onClose, title, description, children, footer, si
 
 export function Toast({ message, tone = "success", onDone }) {
   const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
   useEffect(() => {
     if (!message) return;
     const t = setTimeout(() => onDoneRef.current(), 3200);
