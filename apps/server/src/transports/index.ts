@@ -34,6 +34,8 @@ export async function getOrBuildTransport(
 ): Promise<IMailTransportAdapter> {
 
   if (process.env.USE_FAKE_TRANSPORT === "true" || process.env.NODE_ENV === "test") {
+    const registered = transportCache.get(transportId);
+    if (registered) return registered;
     transportCache.set(transportId, fakeTransport);
     return fakeTransport;
   }
