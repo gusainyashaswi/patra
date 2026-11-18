@@ -1,3 +1,4 @@
+import { overviewRouter } from "./overview.routes.js";
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { ensureDbConnected } from "../middleware/ensureDb.js";
@@ -37,6 +38,7 @@ scopedRouter.use("/uploads", uploadRouter);
 scopedRouter.use("/contacts", contactRouter);
 scopedRouter.use("/lists", listRouter);
 scopedRouter.use("/campaigns", campaignRouter);
+scopedRouter.use("/overview", overviewRouter);
 scopedRouter.get("/domains", requirePermission("manage_senders"), asyncHandler(async (req, res) => {
   const data = await Domain.find({ organizationId: req.user!.organizationId }).sort({ name: 1 });
   res.json({ data });

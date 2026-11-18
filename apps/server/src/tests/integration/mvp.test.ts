@@ -75,4 +75,17 @@ describe("MVP completion", () => {
     expect((await request(app).get(path + "?status=INVALID").auth(ctx.accessToken, { type: "bearer" })).status).toBe(400);
   });
 
+  it("reports real overview data with validated periods", async () => {
+    const ctx = await seedTestContext();
+    const campaign = await Campaign.create({ organizationId: ctx.organization.id, name: "Overview", templateVersionId: ctx.templateVersion.id, senderIdentityId: ctx.sender.id, listId: ctx.list.id });
+    await startSend(ctx.organization.id, campaign.id);
+    const path = `/api/orgs/${ctx.organization.id}/overview`;
+    const result = await request(app).get(path).auth(ctx.accessToken, { type: "bearer" });
+    expect(result.status).toBe(200);
+    expect(result.body.data.stats.pending).toBe(2);
+    expect(result.body.data.stats.sent).toBe(0);
+    expect(result.body.data.setup.every((step: { done: boolean }) => step.done)).toBe(true);
+    expect((await request(app).get(path + "?period=invalid").auth(ctx.accessToken, { type: "bearer" })).status).toBe(400);
+  });
+
 });
