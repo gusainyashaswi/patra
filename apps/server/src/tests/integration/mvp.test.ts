@@ -1,3 +1,5 @@
+import request from "supertest";
+import { app } from "../../app.js";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { setupTestDb, teardownTestDb, clearTestDb, seedTestContext } from "../testHelper.js";
 import { Campaign, CampaignRecipient } from "../../models/campaign.model.js";
@@ -40,6 +42,25 @@ describe("MVP completion", () => {
     const winner = recipients[results.indexOf(true)];
     expect(await reserveQuota(ctx.organization.id, ctx.transport.id, winner.id, 1)).toBe(true);
     expect((await DailyQuota.findOne({ transportId: ctx.transport.id }))?.used).toBe(1);
+  });
+
+  it("protects streams and provides an initial campaign snapshot", async () => {
+    const ctx = await seedTestContext();
+    const campaign = await Campaign.create({ organizationId: ctx.organization.id, name: "Stream", templateVersionId: ctx.templateVersion.id, senderIdentityId: ctx.sender.id, listId: ctx.list.id });
+    const path = `/api/orgs/${ctx.organization.id}/campaigns/${campaign.id}/stream`;
+    expect((await request(app).get(path)).status).toBe(401);
+    const server = app.listen(0, "127.0.0.1");
+    await new Promise<void>(resolve => server.once("listening", resolve));
+    const address = server.address() as { port: number };
+    const controller = new AbortController();
+    try {
+      const response = await fetch(`http://127.0.0.1:${address.port}${path}`, { headers: { Authorization: `Bearer ${ctx.accessToken}` }, signal: controller.signal });
+      expect(response.headers.get("content-type")).toContain("text/event-stream");
+      const reader = response.body!.getReader();
+      const first = await reader.read();
+      expect(new TextDecoder().decode(first.value)).toContain("event: snapshot");
+      await reader.cancel();
+    } finally { controller.abort(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   });
 
 });

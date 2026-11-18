@@ -1,3 +1,4 @@
+import { publishCampaign } from "../services/campaign-events.js";
 import { TestEmail } from "../models/test-email.model.js";
 import { Router, raw } from "express";
 import mongoose from "mongoose";
@@ -51,6 +52,7 @@ webhookRouter.post("/resend", raw({ type: "application/json", limit: "256kb" }),
     if (!transition) return res.status(200).json({ received: true, ignored: true });
     const event = eventSchema.parse(verified);
     if (mongoose.connection.readyState !== 1) throw new ApiError(503, "Database is not connected");
+    let changed: { orgId: string; campaignId: string } | undefined;
     await mongoose.connection.transaction(async (session) => {
       if (await WebhookEvent.exists({ providerEventId: eventId }).session(session)) return;
       // A provider callback can beat the worker's message-ID commit. Leave it
@@ -64,6 +66,7 @@ webhookRouter.post("/resend", raw({ type: "application/json", limit: "256kb" }),
         if (transition.rank > (ranks[test.status] ?? 0)) { test.status = transition.status; await test.save({ session }); }
         return;
       }
+      changed = { orgId: String(recipient.organizationId), campaignId: String(recipient.campaignId) };
       const scope = { organizationId: recipient.organizationId, _id: recipient.campaignId };
       if (!(await Campaign.exists(scope).session(session))) throw new ApiError(503, "Campaign is not available");
       await WebhookEvent.create([{ provider: "resend", providerEventId: eventId, type, payload: verified }], { session });
@@ -85,6 +88,7 @@ webhookRouter.post("/resend", raw({ type: "application/json", limit: "256kb" }),
         { $setOnInsert: { reason } }, { upsert: true, session },
       );
     });
+    if (changed) await publishCampaign(changed.orgId, changed.campaignId);
     return res.status(200).json({ received: true });
   } catch (error) {
     // A concurrent delivery may have won the event's unique index.

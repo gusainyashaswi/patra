@@ -1,3 +1,4 @@
+import { streamCampaign, publishCampaign } from "../services/campaign-events.js";
 import { Router } from "express";
 import { z } from "zod";
 import { Types } from "mongoose";
@@ -85,6 +86,7 @@ campaignRouter.get(
     });
 
     if (!campaign) throw new ApiError(404, "Campaign not found");
+    await publishCampaign(orgId, id);
     res.json({ data: campaign });
   }),
 );
@@ -122,6 +124,7 @@ campaignRouter.post(
       throw new ApiError(409, "Only QUEUED or SENDING campaigns can be paused");
     }
 
+    await publishCampaign(orgId, id);
     res.json({ data: campaign });
   }),
 );
@@ -143,9 +146,16 @@ campaignRouter.post(
       throw new ApiError(409, "Only PAUSED campaigns can be resumed");
     }
 
+    await publishCampaign(orgId, id);
     res.json({ data: campaign });
   }),
 );
+
+campaignRouter.get("/:id/stream", asyncHandler(async (req, res) => {
+  const { orgId, id } = resourceParams.parse(req.params);
+  if (!await Campaign.exists({ _id: id, organizationId: orgId })) throw new ApiError(404, "Campaign not found");
+  await streamCampaign(req, res, orgId, id);
+}));
 
 const recipientQuery = z.object({
   page: z.coerce.number().int().min(0).default(0),
