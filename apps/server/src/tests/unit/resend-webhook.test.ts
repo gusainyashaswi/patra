@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { verifyResendWebhook } from "../../services/resendWebhook.service.js";
+import { resendEventUpdates, verifyResendWebhook } from "../../services/resendWebhook.service.js";
 
 const webhookSecret = `whsec_${Buffer.from("a webhook signing secret").toString("base64")}`;
 
@@ -27,5 +27,12 @@ describe("verifyResendWebhook", () => {
     expect(() => verifyResendWebhook(Buffer.from(`${body} `), signedHeaders(body), webhookSecret)).toThrow(
       "Invalid Svix signature",
     );
+  });
+});
+
+describe("Resend lifecycle event mapping", () => {
+  it("records bounce and failure timestamps on their matching recipient fields", () => {
+    expect(resendEventUpdates["email.bounced"]?.timestampField).toBe("bouncedAt");
+    expect(resendEventUpdates["email.failed"]?.timestampField).toBe("failedAt");
   });
 });

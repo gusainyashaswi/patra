@@ -18,7 +18,7 @@ type EventUpdate = {
   counter?: "deliveredCount" | "bouncedCount" | "failedCount";
 };
 
-const eventUpdates: Record<string, EventUpdate | undefined> = {
+export const resendEventUpdates: Record<string, EventUpdate | undefined> = {
   "email.delivered": {
     status: "DELIVERED",
     timestampField: "deliveredAt",
@@ -27,13 +27,13 @@ const eventUpdates: Record<string, EventUpdate | undefined> = {
   },
   "email.bounced": {
     status: "BOUNCED",
-    timestampField: "failedAt",
+    timestampField: "bouncedAt",
     allowedStatuses: ["QUEUED", "SENT", "FAILED"],
     counter: "bouncedCount",
   },
   "email.failed": {
     status: "FAILED",
-    timestampField: "bouncedAt",
+    timestampField: "failedAt",
     allowedStatuses: ["QUEUED", "SENT"],
     counter: "failedCount",
   },
@@ -111,7 +111,7 @@ export async function processResendWebhook(
     if (event?.processedAt) return { duplicate: true };
   }
 
-  const update = eventUpdates[payload.type];
+  const update = resendEventUpdates[payload.type];
   const messageId = payload.data?.email_id;
   if (update && messageId) {
     const eventTime = payload.created_at && !Number.isNaN(Date.parse(payload.created_at))

@@ -93,6 +93,38 @@ campaignRouter.get(
   }),
 );
 
+campaignRouter.get(
+  "/:id/stream",
+  asyncHandler(async (req, res) => {
+    const { orgId, id } = resourceParams.parse(req.params);
+    res.status(200).set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    let lastSnapshot = "";
+    const sendSnapshot = async () => {
+      const campaign = await Campaign.findOne({ _id: id, organizationId: orgId });
+      if (!campaign) {
+        res.write("event: error\ndata: {\"message\":\"Campaign not found\"}\n\n");
+        res.end();
+        return;
+      }
+      const payload = JSON.stringify(campaign.toJSON());
+      if (payload !== lastSnapshot) {
+        lastSnapshot = payload;
+        res.write(`event: campaign\ndata: ${payload}\n\n`);
+      }
+    };
+    await sendSnapshot();
+    const poller = setInterval(() => { void sendSnapshot().catch(() => res.end()); }, 5_000);
+    const keepAlive = setInterval(() => res.write(": keep-alive\n\n"), 15_000);
+    req.on("close", () => { clearInterval(poller); clearInterval(keepAlive); });
+  }),
+);
+
 // Rule 1 & Rule 2: POST /send locks with conditional update DRAFT -> QUEUED and returns 202
 campaignRouter.post(
   "/:id/send",

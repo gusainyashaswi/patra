@@ -31,6 +31,7 @@ async function serialize(template: HydratedDocument<ITemplate>) {
     revision: template.draftRevision,
     status: latest && latest.draftRevision === template.draftRevision ? "PUBLISHED" : "DRAFT",
     latestVersion: latest?.version ?? 0,
+    latestVersionId: latest?.id,
     updatedAt: template.get("updatedAt"),
   };
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { org as demoOrg } from "./mock";
 
 export interface Organization {
   id: string;
@@ -11,11 +12,13 @@ export interface Workspace {
   org: Organization;
 }
 
-export function useWorkspace(): { workspace: Workspace | undefined; error: Error | null } {
-  const [workspace, setWorkspace] = useState<Workspace | undefined>(undefined);
+export function useWorkspace({ demo = false }: { demo?: boolean } = {}): { workspace: Workspace | undefined; error: Error | null } {
+  const demoMode = demo || (typeof document !== "undefined" && document.cookie.includes("patra-demo=1"));
+  const [workspace, setWorkspace] = useState<Workspace | undefined>(demoMode ? { org: demoOrg } : undefined);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (demoMode) return undefined;
     let active = true;
     async function load() {
       try {
@@ -31,7 +34,7 @@ export function useWorkspace(): { workspace: Workspace | undefined; error: Error
     }
     void load();
     return () => { active = false; };
-  }, []);
+  }, [demoMode]);
 
   return { workspace, error };
 }

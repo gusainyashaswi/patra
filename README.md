@@ -67,7 +67,7 @@ npm run test --workspace server
 npm run lint --workspace client
 ```
 
-The integration suite provisions MongoDB and Redis through Testcontainers, so it requires a Docker-capable environment.
+The integration suite runs MongoDB in memory. For Redis, it first uses `TEST_REDIS_URL` (or `REDIS_URL`) when that server is reachable; otherwise it starts Redis through Testcontainers. This means Docker is optional when you already have Redis running, for example: `TEST_REDIS_URL=redis://localhost:6379 npm test`.
 
 ## Architecture
 

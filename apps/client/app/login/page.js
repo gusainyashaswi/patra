@@ -105,7 +105,7 @@ function LoginForm() {
 
           <p className="mt-6 text-center text-[14px] text-subtle">
             Just exploring?{" "}
-            <a href="/dashboard" className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">
+            <a href="/dashboard?demo=1" className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">
               Open the demo workspace
             </a>
           </p>

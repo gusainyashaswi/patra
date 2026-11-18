@@ -23,7 +23,8 @@ export async function create(orgId: string, input: CreateTransportBody, userId?:
   await audit(orgId, userId, "transport.create", "transport", created.id, session);
   return created;
   });
-  const { credentialsEncrypted: _creds, ...safe } = doc.toObject();
+  const safe = doc.toObject() as unknown as Record<string, unknown>;
+  delete safe.credentialsEncrypted;
   return safe;
 }
 
