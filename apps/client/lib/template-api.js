@@ -11,5 +11,6 @@ export async function uploadTemplateImage(workspace, file) {
   }
   const path = `/orgs/${workspace.org.id}/uploads`;
   const { data } = await api(path, { token: workspace.token, method: "POST", body: file });
+  if (data.url) return data.url;
   return `${API_URL.replace(/\/$/, "")}${data.path}`;
 }

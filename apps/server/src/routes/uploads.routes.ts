@@ -1,3 +1,4 @@
+import { storeImage } from "../services/storage.service.js";
 import express, { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { Schema, model } from "mongoose";
@@ -26,8 +27,8 @@ uploadRouter.post("/", requirePermission("manage_templates"),
     const mime = png ? "image/png" : jpeg ? "image/jpeg" : undefined;
     if (!mime || !req.is(mime)) throw new ApiError(400, "The file contents must match its PNG or JPEG type.");
     const key = randomUUID();
-    await ImageAsset.create({ key, organizationId: req.user!.organizationId, mime, bytes });
-    res.status(201).json({ data: { path: `/uploads/${key}` } });
+    const url = await storeImage(req.user!.organizationId!, key, bytes, mime);
+    res.status(201).json({ data: { path: url, url } });
   }),
 );
 
