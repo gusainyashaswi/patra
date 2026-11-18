@@ -7,6 +7,11 @@ export function useCampaignStream(workspace, id) {
   const [connected, setConnected] = useState(false);
   useEffect(() => {
     if (!id) return;
+    if (typeof document !== "undefined" && document.cookie.includes("patra-demo=1")) {
+      const ready = setTimeout(() => setConnected(true), 0);
+      const timer = setInterval(() => setRevision(value => value + 1), 2000);
+      return () => { clearTimeout(ready); clearInterval(timer); };
+    }
     let stopped = false;
     let timer;
     let idle;

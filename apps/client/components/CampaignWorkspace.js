@@ -26,6 +26,7 @@ function CampaignContent({ workspace, id, create }) {
   const [confirm, setConfirm] = useState(false);
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState("");
+  const [sort, setSort] = useState("active");
   const [estimate, setEstimate] = useState(null);
   const [form, setForm] = useState({ name: "", templateVersionId: "", senderIdentityId: "", listId: "" });
   const inFlight = useRef(false);
@@ -123,6 +124,11 @@ function CampaignContent({ workspace, id, create }) {
   }
 
   const currentEstimate = create ? estimate?.form === form ? estimate.result : null : estimate?.result;
+  const campaignRows = Array.isArray(data) ? [...data].sort((left, right) => {
+    if (sort === "sent") return right.counters.sentCount - left.counters.sentCount;
+    if (sort === "recipients") return right.counters.totalRecipients - left.counters.totalRecipients;
+    return (left.status === "SENDING" ? -1 : 0) - (right.status === "SENDING" ? -1 : 0);
+  }) : [];
   return (
     <>
       <PageHeader title={create ? "New campaign" : id ? data?.name ?? "Campaign" : "Campaigns"}
@@ -187,9 +193,10 @@ function CampaignContent({ workspace, id, create }) {
           </Dialog>
         </>
       ) : data.length ? (
-        <Table><thead><tr><Th>Campaign</Th><Th>Status</Th><Th>Recipients</Th><Th>Sent</Th></tr></thead><tbody>
-          {data.map(campaign => <tr key={campaign.id}><Td><Link href={detailUrl(campaign.id)} className="font-semibold underline">{campaign.name}</Link></Td><Td><StatusBadge status={campaign.status} /></Td><Td>{campaign.counters.totalRecipients}</Td><Td>{campaign.counters.sentCount}</Td></tr>)}
+        <><div className="mb-4 flex justify-end"><Select aria-label="Sort campaigns" className="w-48" value={sort} onChange={event => setSort(event.target.value)}><option value="active">Ongoing first</option><option value="sent">Most sent</option><option value="recipients">Most recipients</option></Select></div><Table><thead><tr><Th>Campaign</Th><Th>Status</Th><Th>Recipients</Th><Th>Sent</Th><Th align="right">View</Th></tr></thead><tbody>
+          {campaignRows.map(campaign => <tr key={campaign.id}><Td><Link href={detailUrl(campaign.id)} className="font-semibold underline">{campaign.name}</Link></Td><Td><StatusBadge status={campaign.status} /></Td><Td>{campaign.counters.totalRecipients}</Td><Td>{campaign.counters.sentCount}</Td><Td align="right"><Link href={detailUrl(campaign.id)} className="inline-flex h-9 items-center border border-line-strong px-3 font-mono text-[12px] font-bold uppercase tracking-[0.08em] hover:bg-fg hover:text-bg">View <span aria-hidden="true" className="ml-1">→</span></Link></Td></tr>)}
         </tbody></Table>
+        </>
       ) : <p className="text-muted">Create your first campaign from a published template.</p> : !error && <p role="status">Loading campaigns…</p>}
     </>
   );

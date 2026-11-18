@@ -24,6 +24,23 @@ export class ApiClientError extends Error {
 let refreshing: Promise<void> | undefined;
 
 const demoCampaigns = campaigns.map((campaign) => ({ ...campaign, counters: { totalRecipients: campaign.counters.total, sentCount: campaign.counters.sent + campaign.counters.delivered, deliveredCount: campaign.counters.delivered, bouncedCount: campaign.counters.bounced, failedCount: campaign.counters.failed } }));
+const demoCampaignList = [
+  demoCampaigns.find((campaign) => campaign.status === "SENDING"),
+  demoCampaigns.find((campaign) => campaign.status === "COMPLETED"),
+].filter((campaign): campaign is typeof demoCampaigns[number] => Boolean(campaign));
+const demoStartedAt = Date.now();
+const demoCampaignState = new Map<string, { status?: string; counters?: typeof demoCampaigns[number]["counters"] }>();
+function currentDemoCampaign(campaign: typeof demoCampaigns[number]) {
+  const state = demoCampaignState.get(campaign.id);
+  const status = state?.status ?? campaign.status;
+  if (status !== "SENDING") return { ...campaign, status, counters: state?.counters ?? campaign.counters };
+  const progressed = Math.min(240, Math.floor((Date.now() - demoStartedAt) / 2_000) * 8);
+  return { ...campaign, counters: {
+    ...campaign.counters,
+    sentCount: campaign.counters.sentCount + progressed,
+    deliveredCount: campaign.counters.deliveredCount + Math.floor(progressed * 0.75),
+  }, status };
+}
 const inDemoMode = () => typeof document !== "undefined" && document.cookie.includes("patra-demo=1");
 const demoOverview = (period: string) => {
   const samples = {
@@ -42,9 +59,27 @@ function demoData(path: string, method: string): unknown | undefined {
   if (!match) return undefined;
   const resource = match[1] || "/";
   if (resource === "/overview") return demoOverview(new URLSearchParams(query).get("period") ?? "30d");
-  if (resource === "/campaigns") return method === "GET" ? demoCampaigns : demoCampaigns[0];
+  if (resource === "/campaigns") return method === "GET" ? demoCampaignList.map(currentDemoCampaign) : currentDemoCampaign(demoCampaigns[0]);
   const campaign = resource.match(/^\/campaigns\/([^/]+)(?:\/(recipients|pause|resume|send))?$/);
-  if (campaign) { const row = demoCampaigns.find((item) => item.id === campaign[1]) ?? demoCampaigns[0]; if (campaign[2] === "recipients") return { rows: recipientsFor(row).map((recipient) => ({ ...recipient, status: recipient.status === "PENDING" ? "QUEUED" : recipient.status })), total: 40, page: 0, limit: 100 }; return row; }
+  if (campaign) {
+    const base = demoCampaigns.find((item) => item.id === campaign[1]) ?? demoCampaigns[0];
+    if (campaign[2] === "pause" && method === "POST") {
+      const snapshot = currentDemoCampaign(base);
+      demoCampaignState.set(base.id, { status: "PAUSED", counters: snapshot.counters });
+    }
+    if (campaign[2] === "resume" && method === "POST") demoCampaignState.set(base.id, { status: "SENDING" });
+    const row = currentDemoCampaign(base);
+    if (campaign[2] === "recipients") {
+      const params = new URLSearchParams(query);
+      const selectedStatus = params.get("status");
+      const limit = Math.max(1, Number(params.get("limit") ?? 25));
+      const page = Math.max(0, Number(params.get("page") ?? 0));
+      const allRows = recipientsFor(row).map((recipient) => ({ ...recipient, status: recipient.status === "PENDING" ? "QUEUED" : recipient.status }));
+      const rows = selectedStatus ? allRows.filter((recipient) => recipient.status === selectedStatus) : allRows;
+      return { rows: rows.slice(page * limit, (page + 1) * limit), total: rows.length, page, limit };
+    }
+    return row;
+  }
   if (resource === "/templates") return templates.map((template) => ({ ...template, latestVersionId: template.id }));
   if (resource === "/senders") return senders;
   if (resource === "/domains") return domains;
