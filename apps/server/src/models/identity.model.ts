@@ -2,6 +2,7 @@ import { Schema, model, type Types, type Model, type HydratedDocument } from "mo
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { schemaOptions } from "./base.js";
+import { env } from "../config/env.js";
 
 export interface IUser {
   email: string;
@@ -95,14 +96,6 @@ userSchema.methods.isPasswordCorrect = async function (password: string): Promis
 
 // Generate Access Token (Backend2-yuvi standard with Patra RBAC support)
 userSchema.methods.generateAccessToken = function (permissions: string[] = []): string {
-  const secret =
-    process.env.ACCESS_TOKEN_SECRET ||
-    process.env.JWT_ACCESS_SECRET ||
-    process.env.JWT_SECRET ||
-    "patra_jwt_access_secret_super_secure_key_123456789";
-
-  const expiresIn = process.env.ACCESS_TOKEN_EXPIRY || process.env.JWT_EXPIRES_IN || "1d";
-
   return jwt.sign(
     {
       _id: this._id,
@@ -114,31 +107,24 @@ userSchema.methods.generateAccessToken = function (permissions: string[] = []): 
       isPlatformAdmin: this.isPlatformAdmin,
       permissions,
     },
-    secret,
+    env.ACCESS_TOKEN_SECRET,
     {
-      expiresIn: expiresIn as any,
+      expiresIn: env.ACCESS_TOKEN_EXPIRY as any,
     },
   );
 };
 
 // Generate Refresh Token
 userSchema.methods.generateRefreshToken = function (): string {
-  const secret =
-    process.env.REFRESH_TOKEN_SECRET ||
-    process.env.JWT_REFRESH_SECRET ||
-    "patra_jwt_refresh_secret_super_secure_key_987654321";
-
-  const expiresIn = process.env.REFRESH_TOKEN_EXPIRY || process.env.JWT_REFRESH_EXPIRES_IN || "10d";
-
   return jwt.sign(
     {
       _id: this._id,
       id: this._id.toString(),
       sub: this._id.toString(),
     },
-    secret,
+    env.REFRESH_TOKEN_SECRET,
     {
-      expiresIn: expiresIn as any,
+      expiresIn: env.REFRESH_TOKEN_EXPIRY as any,
     },
   );
 };

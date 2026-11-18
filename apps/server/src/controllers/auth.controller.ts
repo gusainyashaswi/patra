@@ -7,6 +7,7 @@ import { Membership } from "../models/identity.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { env } from "../config/env.js";
 
 export const cookieOptions = {
   httpOnly: true,
@@ -224,12 +225,7 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
   }
 
   try {
-    const refreshSecret =
-      process.env.REFRESH_TOKEN_SECRET ||
-      process.env.JWT_REFRESH_SECRET ||
-      "patra_jwt_refresh_secret_super_secure_key_987654321";
-
-    const decodedToken = jwt.verify(incomingRefreshToken, refreshSecret) as {
+    const decodedToken = jwt.verify(incomingRefreshToken, env.REFRESH_TOKEN_SECRET) as {
       _id?: string;
       id?: string;
       sub?: string;

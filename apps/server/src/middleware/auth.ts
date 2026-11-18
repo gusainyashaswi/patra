@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { User, Membership, Role } from "../models/identity.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { env } from "../config/env.js";
 
 export const verifyJwt = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
   try {
@@ -15,13 +16,7 @@ export const verifyJwt = asyncHandler(async (req: Request, _res: Response, next:
       throw new ApiError(401, "Unauthorized Request - No token provided");
     }
 
-    const secret =
-      process.env.ACCESS_TOKEN_SECRET ||
-      process.env.JWT_ACCESS_SECRET ||
-      process.env.JWT_SECRET ||
-      "patra_jwt_access_secret_super_secure_key_123456789";
-
-    const decodedToken = jwt.verify(token, secret) as {
+    const decodedToken = jwt.verify(token, env.ACCESS_TOKEN_SECRET) as {
       _id?: string;
       id?: string;
       sub?: string;
