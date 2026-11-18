@@ -1,5 +1,6 @@
 "use client";
 
+import { useCampaignStream } from "@/lib/campaign-stream";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,9 @@ function CampaignContent({ workspace, id, create }) {
   const [estimate, setEstimate] = useState(null);
   const [form, setForm] = useState({ name: "", templateVersionId: "", senderIdentityId: "", listId: "" });
   const inFlight = useRef(false);
+  const { revision, connected } = useCampaignStream(workspace, create ? null : id);
+  const live = useRef(false);
+  useEffect(() => { live.current = connected; }, [connected]);
   const query = new URLSearchParams({ page: String(page), limit: "25", ...(status ? { status } : {}) }).toString();
   const detailUrl = (campaignId) => `/campaigns/${campaignId}?org=${workspace.org.id}`;
 
@@ -47,11 +51,11 @@ function CampaignContent({ workspace, id, create }) {
         }
         if (active) setError("");
       } catch (error) { if (active) setError(error.message); }
-      finally { if (active && !create) timer = setTimeout(load, 4000); }
+      finally { if (active && !create) timer = setTimeout(load, live.current ? 30000 : 4000); }
     }
     load();
     return () => { active = false; clearTimeout(timer); };
-  }, [workspace, id, create, query]);
+  }, [workspace, id, create, query, revision]);
 
   useEffect(() => {
     if (!create || !Object.values(form).every(value => value.trim())) return;

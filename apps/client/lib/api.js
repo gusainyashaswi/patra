@@ -8,7 +8,7 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== "un
   ? `http://${window.location.hostname}:5001/api`
   : "http://localhost:5001/api");
 
-export async function api(path, { method = "GET", body, token, responseType } = {}) {
+export async function api(path, { method = "GET", body, token, responseType, signal } = {}) {
   const storedToken = typeof window !== "undefined" ? sessionToken() : null;
   const authToken = token ? storedToken ?? token : undefined;
   let res;
@@ -16,6 +16,7 @@ export async function api(path, { method = "GET", body, token, responseType } = 
   try {
     const request = (accessToken) => fetch(`${API_URL}${path}`, {
       method,
+      signal,
       credentials: "include",
       headers: {
         "Content-Type": binary ? body.type || "application/octet-stream" : "application/json",
@@ -47,6 +48,7 @@ export async function api(path, { method = "GET", body, token, responseType } = 
     if (error.message !== "Failed to fetch" && error.name !== "TypeError") throw error;
     throw new Error("Can't reach the Patra API. Is the server running on port 5001?");
   }
+  if (res.ok && responseType === "stream") return res;
   if (res.ok && responseType === "blob") return res.blob();
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.success === false) {
