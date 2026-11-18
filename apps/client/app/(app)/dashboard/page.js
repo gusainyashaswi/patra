@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Segmented, StatusBadge, cx, fmt } from "@/components/ui";
-import { byId, campaigns, domains, lists, me, senders, setupSteps, templates, transports } from "@/lib/mock";
+import { byId, campaigns, domains, lists, senders, setupSteps, templates, transports } from "@/lib/mock";
+import { api } from "@/lib/api";
 
 /*
   Single-screen overview. On desktop it is locked to the viewport (see AppShell `fit`):
@@ -157,11 +158,19 @@ function SendsChart({ p }) {
 
 export default function Dashboard() {
   const [period, setPeriod] = useState("7d");
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    let active = true;
+    api("/auth/me").then(({ data }) => {
+      if (active) setUser(data);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   const p = periods[period];
   const delivered = sum(p.delivered);
   const bounced = sum(p.bounced);
   const sent = delivered + bounced + sum(p.failed);
-  const bounceRate = (bounced / sent) * 100;
+  const bounceRate = fmt.bounceRateRatio(bounced, delivered) ?? 0;
 
   const live = campaigns.find((c) => c.status === "SENDING");
   const lc = live?.counters;
@@ -172,18 +181,22 @@ export default function Dashboard() {
 
   const alerts = [
     ...(live
-      ? [{ tone: "danger", title: `Bounce rate ${fmt.pct(lc.bounced, lc.total - lc.pending)} on ${live.name}`, href: `/campaigns/${live.id}` }]
+      ? [{ tone: "danger", title: `Bounce rate ${fmt.bounceRate(lc.bounced, lc.delivered, lc.sent)} on ${live.name}`, href: `/campaigns/${live.id}` }]
       : []),
     ...domains.filter((d) => !d.verified).map((d) => ({ tone: "warning", title: `${d.name} isn't verified`, href: "/settings?tab=domains" })),
     ...transports.filter((t) => t.status !== "CONNECTED").map((t) => ({ tone: "warning", title: `${t.name} needs a connection test`, href: "/settings?tab=transports" })),
   ];
+  const greetingDate = new Intl.DateTimeFormat(undefined, {
+    weekday: "long", day: "numeric", month: "long",
+  }).format(new Date());
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "there";
 
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:gap-4 xl:gap-5">
       {/* Header */}
       <header className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="border-l-[3px] border-accent pl-4">
-          <p className="label text-subtle">Thursday · 6 November · {me.name.split(" ")[0]}</p>
+          <p className="label text-subtle">{greetingDate} · {firstName}</p>
           <h1 className="display mt-1.5 text-[36px]">Overview</h1>
         </div>
         <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
@@ -218,9 +231,9 @@ export default function Dashboard() {
         <Kpi label="Opened" value={fmt.pct(p.opened, delivered)} sub={`${fmt.n(p.opened)} unique opens`} delta={<Delta now={p.opened / delivered} prev={p.prev.opened / p.prev.delivered} />} />
         <Kpi
           label="Bounce rate"
-          value={`${bounceRate.toFixed(1)}%`}
+          value={fmt.bounceRate(bounced, delivered)}
           sub={`${fmt.n(bounced)} bounced · limit ${BOUNCE_LIMIT}%`}
-          delta={<Delta now={bounced / sent} prev={p.prev.bounced / p.prev.sent} inverse />}
+          delta={<Delta now={bounceRate} prev={fmt.bounceRateRatio(p.prev.bounced, p.prev.delivered) ?? 0} inverse />}
           href="/contacts"
         />
         <Kpi label="In queue" value={fmt.n(lc?.pending ?? 0)} sub={lc ? `≈ ${etaMin} min left at ${transport.ratePerSecond}/s` : "Nothing queued"} highlight={!!lc} href={live ? `/campaigns/${live.id}` : undefined} />

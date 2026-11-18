@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon, Logo } from "./icons";
 import { cx } from "./ui";
-import { me } from "@/lib/mock";
 import { api } from "@/lib/api";
 
 const nav = [
@@ -47,11 +46,20 @@ export default function AppShell({ children }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [user, setUser] = useState(null);
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
   // The designer needs the full viewport; it renders its own chrome.
   const bare = /^\/templates\/[^/]+$/.test(pathname);
   // The overview is a single-screen dashboard on desktop: lock it to the viewport.
   const fit = pathname === "/dashboard";
+  useEffect(() => {
+    let active = true;
+    api("/auth/me").then(({ data }) => {
+      if (active) setUser(data);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "Account";
   async function logout() {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -106,11 +114,11 @@ export default function AppShell({ children }) {
               type="button"
               onClick={logout}
               disabled={loggingOut}
-              aria-label={`Log out ${me.name}`}
+              aria-label={`Log out ${user?.name || "account"}`}
               title="Log out"
               className="hidden h-10 items-center gap-2.5 whitespace-nowrap px-3 font-mono xl:inline-flex text-[12px] font-bold uppercase tracking-[0.12em] text-on-nav/70 hover:bg-white/10 hover:text-on-nav cursor-pointer transition-colors"
             >
-              {loggingOut ? "Logging out…" : me.name.split(" ")[0]} <Icon.LogOut size={15} />
+              {loggingOut ? "Logging out…" : firstName} <Icon.LogOut size={15} />
             </button>
             <Link
               href="/campaigns/new"

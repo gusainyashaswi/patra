@@ -443,8 +443,17 @@ export function Toast({ message, tone = "success", onDone }) {
   );
 }
 
+const ratio = (numerator, denominator) => (denominator > 0 ? numerator / denominator : null);
+const formatPercent = (numerator, denominator) => {
+  const value = ratio(numerator, denominator);
+  return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
+};
+
 export const fmt = {
   n: (v) => new Intl.NumberFormat("en-US").format(v),
-  pct: (a, b) => (b ? `${((a / b) * 100).toFixed(1)}%` : "—"),
+  pct: formatPercent,
+  // Bounces are measured only against messages accepted for delivery, never queued, skipped, or failed rows.
+  bounceRateRatio: (bounced, delivered, inFlight = 0) => ratio(bounced, bounced + delivered + inFlight),
+  bounceRate: (bounced, delivered, inFlight = 0) => formatPercent(bounced, bounced + delivered + inFlight),
   date: (iso) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
 };

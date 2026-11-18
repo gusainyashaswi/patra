@@ -66,6 +66,7 @@ export default function CampaignDetail() {
   const l = byId(lists, campaign.listId);
   const processed = c.total - c.pending;
   const live = status === "SENDING";
+  const bounceRate = fmt.bounceRateRatio(c.bounced, c.delivered, c.sent);
 
   const rows = recipients.filter(
     (r) =>
@@ -140,7 +141,7 @@ export default function CampaignDetail() {
         <Stat label="Delivery rate" value={fmt.pct(c.delivered, processed)} tone="success" />
         <Stat label="Open rate" value={fmt.pct(c.opened, c.delivered)} />
         <Stat label="Click rate" value={fmt.pct(c.clicked, c.delivered)} />
-        <Stat label="Bounce rate" value={fmt.pct(c.bounced, processed)} tone={c.bounced / processed > 0.01 ? "danger" : undefined} />
+        <Stat label="Bounce rate" value={fmt.bounceRate(c.bounced, c.delivered, c.sent)} tone={bounceRate !== null && bounceRate > 0.01 ? "danger" : undefined} />
       </section>
 
       <section>
