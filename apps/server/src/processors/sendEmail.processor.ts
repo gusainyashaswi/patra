@@ -31,7 +31,7 @@ export async function markRecipientFailed(
   await mongoose.connection.transaction(async (session) => {
     const updateRes = await CampaignRecipient.updateOne(
       { _id: recipientId, campaignId, status: "QUEUED" },
-      { $set: { status: "FAILED", error: errorMsg } },
+      { $set: { status: "FAILED", error: errorMsg, failedAt: new Date() } },
       { session },
     );
     if (updateRes.modifiedCount === 1) {

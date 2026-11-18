@@ -106,3 +106,25 @@ patra/
 - **Outbox & History Tracking**: View delivered emails and click through to web-based preview inboxes.
 - **Built-in Quick Templates**: Onboarding Welcome, Security OTP, and Weekly Digest templates.
 - **Modern UI**: Dark glassmorphic aesthetic, responsive design, and health check indicator.
+
+### Resend delivery webhooks
+
+Set `RESEND_WEBHOOK_SECRET` in the API environment to the signing secret from
+Resend. Register your public API URL with path `POST /api/webhooks/resend` for
+`email.delivered`, `email.opened`, `email.clicked`, `email.bounced`,
+`email.complained`, and `email.failed`. The endpoint verifies the original body
+with Svix before database access; it does not use a login session. See the
+[Resend event schema](https://github.com/resend/resend-openapi/blob/main/resend.yaml).
+
+MongoDB must be a replica set: event receipt, recipient changes, campaign counter
+increments, and suppressions commit together. Duplicate deliveries are harmless;
+late engagement events cannot replace a bounce, complaint, or failure. Delivery,
+bounce, and failure counters count each milestone once per recipient, so they
+are historical totals rather than mutually exclusive status buckets.
+
+Unmatched message IDs return `503` without recording the event, allowing Resend
+to retry if its callback arrives before the worker stores the message ID.
+Messages sent outside the campaign worker (including template test emails) have
+no campaign recipient and also remain unmatched. Unrelated event types are
+acknowledged without changes. The campaign screen currently reads these changes
+through its existing polling; Redis/SSE streaming is a separate milestone.

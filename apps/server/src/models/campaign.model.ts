@@ -71,6 +71,8 @@ export interface ICampaignRecipient {
   bouncedAt?: Date;
   openedAt?: Date;
   clickedAt?: Date;
+  failedAt?: Date;
+  complainedAt?: Date;
 }
 
 const campaignRecipientSchema = new Schema<ICampaignRecipient>(
@@ -87,9 +89,12 @@ const campaignRecipientSchema = new Schema<ICampaignRecipient>(
     bouncedAt: Date,
     openedAt: Date,
     clickedAt: Date,
+    failedAt: Date,
+    complainedAt: Date,
   },
   schemaOptions,
 );
+campaignRecipientSchema.index({ providerMessageId: 1 });
 campaignRecipientSchema.index({ campaignId: 1, status: 1 });
 campaignRecipientSchema.index({ organizationId: 1, email: 1, campaignId: 1 }, { unique: true });
 export const CampaignRecipient = model<ICampaignRecipient>(

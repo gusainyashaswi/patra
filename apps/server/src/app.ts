@@ -1,4 +1,5 @@
 import express from "express";
+import { webhookRouter } from "./routes/webhooks.routes.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/errors.js";
@@ -18,6 +19,9 @@ app.use(
     credentials: true,
   }),
 );
+
+// Signature verification requires the original bytes, before JSON parsing.
+app.use("/api/webhooks", webhookRouter);
 
 const parseJson = express.json({ limit: "16kb" });
 app.use((req, res, next) => {
