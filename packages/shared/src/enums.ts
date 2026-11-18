@@ -1,4 +1,5 @@
-export const TRANSPORT_TYPES = ["RESEND", "SMTP", "SES"] as const;
+// Resend is the only provider with a production adapter in this release.
+export const TRANSPORT_TYPES = ["RESEND"] as const;
 export const TRANSPORT_STATUSES = ["UNVERIFIED", "VERIFIED", "FAILED"] as const;
 export const TEMPLATE_STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 export const CAMPAIGN_STATUSES = [

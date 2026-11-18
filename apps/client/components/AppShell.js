@@ -156,6 +156,12 @@ export default function AppShell({ children }) {
         )}
       </header>
 
+      {!bare && (
+        <div role="status" className="border-b border-warning/30 bg-warning/10 px-5 py-2 text-center text-[13px] text-warning sm:px-10">
+          <span className="font-semibold">Demo mode:</span> Dashboard, campaign, and template sample data is illustrative and does not represent live delivery activity.
+        </div>
+      )}
+
       <main id="main" className="min-w-0">
         <div
           key={pathname}

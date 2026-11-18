@@ -56,23 +56,10 @@ export async function getOrBuildTransport(
   }
 
   if (transport.status !== "VERIFIED") throw new PermanentError("Transport is not verified");
-  let adapter: IMailTransportAdapter;
-
-  switch (transport.type) {
-    case "RESEND": {
-      if (!transport.credentialsEncrypted) {
-        throw new PermanentError("Resend transport has no encrypted credentials");
-      }
-      const apiKey = decrypt(transport.credentialsEncrypted);
-      adapter = new ResendTransport(apiKey);
-      break;
-    }
-    case "SMTP":
-    default: {
-      // For testing or unsupported types, fall back to fakeTransport if configured
-      throw new PermanentError("This transport type is not supported for campaign delivery");
-    }
+  if (!transport.credentialsEncrypted) {
+    throw new PermanentError("Resend transport has no encrypted credentials");
   }
+  const adapter: IMailTransportAdapter = new ResendTransport(decrypt(transport.credentialsEncrypted));
 
   transportCache.set(transportId, adapter);
   return adapter;

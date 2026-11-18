@@ -4,6 +4,9 @@ import { Types } from "mongoose";
 import { resourceParams, objectId } from "../middleware/orgAccess.js";
 import { requirePermission } from "../middleware/requirePermission.js";
 import { Campaign, CampaignRecipient } from "../models/campaign.model.js";
+import { TemplateVersion } from "../models/template.model.js";
+import { SenderIdentity } from "../models/mailTransport.model.js";
+import { List } from "../models/audience.model.js";
 import { startSend } from "../services/send.service.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -33,9 +36,19 @@ campaignRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const input = createCampaignBody.parse(req.body);
+    const organizationId = req.user!.organizationId!;
+    const [templateVersion, senderIdentity, list] = await Promise.all([
+      TemplateVersion.exists({ _id: input.templateVersionId, organizationId }),
+      SenderIdentity.exists({ _id: input.senderIdentityId, organizationId }),
+      List.exists({ _id: input.listId, organizationId }),
+    ]);
+    if (!templateVersion) throw new ApiError(404, "Template version not found");
+    if (!senderIdentity) throw new ApiError(404, "Sender identity not found");
+    if (!list) throw new ApiError(404, "Audience list not found");
+
     const campaign = await Campaign.create({
       ...input,
-      organizationId: req.user!.organizationId,
+      organizationId,
       status: "DRAFT",
       counters: {
         totalRecipients: 0,

@@ -1,108 +1,92 @@
-# Patra ✉️
+# Patra
 
-> A clean, modern mailing service repository with separated backend and frontend architectures.
+Patra is a multi-tenant email campaign application. The Next.js dashboard creates audiences, templates, sender identities, and campaigns; the Express API and BullMQ worker perform secure, asynchronous delivery.
 
----
-
-## 📁 Repository Structure
+## Workspace layout
 
 ```
 patra/
-├── backend/                       # Node.js & Express API Service
-│   ├── src/
-│   │   ├── config/                # Environment and transporter configurations
-│   │   │   └── index.js
-│   │   ├── controllers/           # Request handlers and validation
-│   │   │   └── mailController.js
-│   │   ├── routes/                # API route definitions
-│   │   │   └── mailRoutes.js
-│   │   ├── services/              # Nodemailer logic & outbox history
-│   │   │   └── mailService.js
-│   │   ├── app.js                 # Express application middleware & setup
-│   │   └── server.js              # Server entry point
-│   ├── .env.example               # Template environment variables
-│   └── package.json               # Backend dependencies and scripts
-│
-├── frontend/                      # Web Client Dashboard
-│   ├── src/
-│   │   ├── css/
-│   │   │   └── style.css          # Design system & responsive layout
-│   │   └── js/
-│   │       └── app.js             # Client logic, live preview & API client
-│   ├── index.html                 # Main interface
-│   ├── server.js                  # Lightweight local static server
-│   └── package.json               # Frontend scripts
-│
-├── .gitignore                     # Git ignore rules for dependencies & env
-└── README.md                      # Project documentation
+├── apps/
+│   ├── client/          # Next.js 16 dashboard
+│   └── server/          # Express API, worker, queue processors, and Vitest tests
+├── packages/
+│   └── shared/          # Shared enums and TypeScript types
+├── docker-compose.yaml  # Redis and single-node MongoDB replica set, API, and worker
+└── turbo.json           # Workspace task graph
 ```
 
----
+## Prerequisites
 
-## 🚀 Quick Start
+- Node.js 22 or later
+- npm 10 or later
+- MongoDB replica set (required for transactions)
+- Redis (required by BullMQ)
+- A configured Resend transport for real email delivery
 
-### 1. Backend Setup
+For local container dependencies, install Docker and use the supplied Compose stack. It initializes MongoDB as the `rs0` replica set.
 
-1. Open a terminal and navigate to `backend/`:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. (Optional) Set up your SMTP credentials:
+## Setup
 
-   ```bash
-   cp .env.example .env
-   ```
+Install dependencies from the repository root:
 
-   > **Note:** If no SMTP credentials are provided, Patra automatically generates a temporary [Ethereal](https://ethereal.email/) test account so you can test sending emails immediately with web preview links.
+```bash
+npm install
+```
 
-4. Start the backend server:
-   ```bash
-   npm run dev
-   # or
-   npm start
-   ```
-   The backend runs on **http://localhost:5001**.
+Copy the server environment template and set real secrets. Do not use the placeholder values:
 
-#### Backend API Endpoints
+```bash
+cp apps/server/.env.example apps/server/.env
+```
 
-- `GET /api/health` — Service health and status.
-- `POST /api/mail/send` — Dispatches an email.
-  - **Body parameters:**
-    - `to` (string or array of strings, required)
-    - `subject` (string, required)
-    - `text` or `html` (string, at least one required)
-    - `from` (string, optional)
-    - `cc` (string or array of strings, optional)
-    - `bcc` (string or array of strings, optional)
-- `GET /api/mail/history` — Returns sent emails and delivery logs.
+At a minimum, configure `MONGODB_URI`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, and `CREDENTIALS_KEY`. For email delivery, also configure a Resend transport through the application. See [apps/server/.env.example](apps/server/.env.example) for optional webhook and object-storage settings.
 
----
+Start the API and dashboard in separate terminals:
 
-### 2. Frontend Setup
+```bash
+npm run dev --workspace server
+npm run dev --workspace client
+```
 
-1. Open a second terminal and navigate to `frontend/`:
-   ```bash
-   cd frontend
-   ```
-2. Start the local client server:
-   ```bash
-   npm start
-   # or
-   npm run dev
-   ```
-3. Open your browser at **http://localhost:3000**.
+The dashboard runs at `http://localhost:3000`; the API defaults to `http://localhost:5001`.
 
----
+Run the background worker separately when testing campaign delivery:
 
-## ✨ Key Features
+```bash
+npx tsx apps/server/src/worker.ts
+```
 
-- **Decoupled Architecture**: Isolated `backend` and `frontend` folders with separate configs and runtimes.
-- **Zero-Config Testing**: Automatically creates Ethereal test accounts when no SMTP provider is supplied, allowing safe offline and local testing.
-- **Real-Time Live Preview**: Instantly renders email body and headers as you compose.
-- **Outbox & History Tracking**: View delivered emails and click through to web-based preview inboxes.
-- **Built-in Quick Templates**: Onboarding Welcome, Security OTP, and Weekly Digest templates.
-- **Modern UI**: Dark glassmorphic aesthetic, responsive design, and health check indicator.
+## Common commands
+
+```bash
+npm run build                 # Build all workspaces through Turbo
+npm run test                  # Run workspace test commands
+npm run lint                  # Run workspace lint commands
+npm run build --workspace server
+npm run test --workspace server
+npm run lint --workspace client
+```
+
+The integration suite provisions MongoDB and Redis through Testcontainers, so it requires a Docker-capable environment.
+
+## Architecture
+
+- **Client:** Next.js dashboard using HTTP-only cookie sessions.
+- **API:** Express API for authenticated organization resources and public webhook/unsubscribe endpoints.
+- **Worker:** BullMQ consumers that render and deliver campaign messages.
+- **MongoDB:** system of record; the Compose configuration runs it as a single-node replica set for transaction support.
+- **Redis:** BullMQ queue storage and scheduling.
+- **Resend:** current campaign delivery provider; delivery webhooks are Svix-verified at `POST /api/webhooks/resend`.
+- **Object storage:** uploaded template images are stored in an S3-compatible bucket; MongoDB keeps only image metadata and object keys.
+
+## Operational notes
+
+- Configure `RESEND_WEBHOOK_SECRET` before enabling the Resend webhook endpoint.
+- Configure the `S3_*` variables before enabling image uploads.
+- The Compose file expects production secrets to be supplied through the environment; never commit `.env` files or credentials.
+- Redis and the API expose Compose health checks; API and worker containers restart automatically after failures and wait for Redis health plus replica-set initialization.
+- To remove the obsolete sender-level transport field from an existing database, run:
+
+  ```bash
+  npm run migrate:sender-transport-id --workspace server
+  ```

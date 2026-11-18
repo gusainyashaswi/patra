@@ -1,10 +1,5 @@
-import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
-const interTight = Inter_Tight({ variable: "--font-inter-tight", subsets: ["latin"], weight: "variable" });
-const jetbrains = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"], weight: "variable" });
 
 export const metadata = {
   title: { default: "Patra", template: "%s · Patra" },
@@ -26,7 +21,7 @@ export default function RootLayout({ children }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${interTight.variable} ${jetbrains.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <head>
         {/* Patra supplies its own themes. Prevent style rewriting before hydration. */}

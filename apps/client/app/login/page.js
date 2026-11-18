@@ -1,12 +1,20 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Icon, Logo } from "@/components/icons";
 import { Button, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div role="status" className="grid min-h-screen place-items-center text-muted">Loading sign in…</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");

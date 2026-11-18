@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import type { AnyBulkWriteOperation } from "mongoose";
 import { z } from "zod";
-import { Contact, List, Suppression, type IContact } from "../models/audience.model.js";
+import { Contact, ImportJob, List, Suppression, type IContact } from "../models/audience.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { readContactFile } from "./contact-file.js";
 
@@ -71,11 +71,19 @@ export async function analyzeImport(organizationId: string, filename: string, fi
   return { ready, invalid, duplicate, suppressed, existing, fields: fields.filter((item) => item !== "email" && item !== "name") };
 }
 
-export async function saveImport(
+export type ImportResult = {
+  list: { id: string; name: string; count: number };
+  added: number;
+  updated: number;
+  included: number;
+  skipped: number;
+};
+
+async function executeImport(
   organizationId: string,
   imported: Awaited<ReturnType<typeof analyzeImport>>,
   options: { requestId: string; listId?: string; listName?: string; duplicateMode: "skip" | "update" },
-) {
+): Promise<ImportResult> {
   const { listId, listName, requestId, duplicateMode } = options;
   if (!imported.ready.length) throw new ApiError(400, "There are no sendable rows to import.");
   if (listId && !(await List.exists({ _id: listId, organizationId }))) throw new ApiError(404, "List not found");
@@ -116,4 +124,50 @@ export async function saveImport(
     list: { id: list.id, name: list.name, count: list.contactIds.length }, added, updated, included: contactIds.length,
     skipped: imported.invalid.length + imported.duplicate.length + imported.suppressed.length,
   };
+}
+
+export async function saveImport(
+  organizationId: string,
+  imported: Awaited<ReturnType<typeof analyzeImport>>,
+  options: { requestId: string; listId?: string; listName?: string; duplicateMode: "skip" | "update" },
+): Promise<ImportResult> {
+  let claimed = false;
+  try {
+    await ImportJob.create({ organizationId, requestId: options.requestId, status: "PROCESSING" });
+    claimed = true;
+  } catch (error) {
+    if ((error as { code?: number }).code !== 11000) throw error;
+  }
+
+  if (!claimed) {
+    const existing = await ImportJob.findOne({ organizationId, requestId: options.requestId });
+    if (existing?.status === "COMPLETED" && existing.result) return existing.result as ImportResult;
+    // Allow retry after a recorded failure or an abandoned claim, but prevent concurrent writers.
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
+    const reclaimed = await ImportJob.findOneAndUpdate(
+      {
+        organizationId,
+        requestId: options.requestId,
+        $or: [{ status: "FAILED" }, { status: "PROCESSING", startedAt: { $lte: staleBefore } }],
+      },
+      { $set: { status: "PROCESSING", startedAt: new Date() }, $unset: { result: 1, error: 1 } },
+      { new: true },
+    );
+    if (!reclaimed) throw new ApiError(409, "This import is already processing. Retry shortly with the same request ID.");
+  }
+
+  try {
+    const result = await executeImport(organizationId, imported, options);
+    await ImportJob.updateOne(
+      { organizationId, requestId: options.requestId, status: "PROCESSING" },
+      { $set: { status: "COMPLETED", result } },
+    );
+    return result;
+  } catch (error) {
+    await ImportJob.updateOne(
+      { organizationId, requestId: options.requestId, status: "PROCESSING" },
+      { $set: { status: "FAILED", error: error instanceof Error ? error.message : String(error) } },
+    );
+    throw error;
+  }
 }

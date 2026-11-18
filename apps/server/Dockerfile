@@ -1,22 +1,30 @@
+# Build from the repository root. Turbo prune retains the server and its workspace dependencies.
+FROM node:22-alpine AS pruner
+
+WORKDIR /app
+COPY . .
+RUN npm ci --ignore-scripts && npx turbo prune server --docker
+
 FROM node:22-alpine AS builder
 
 WORKDIR /app
-
-COPY package.json package-lock.json* ./
+COPY --from=pruner /app/out/json/ ./
 RUN npm ci
-
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
+COPY --from=pruner /app/out/full/ ./
+RUN npm run build --workspace @patra/shared && npm run build --workspace server
+RUN npm prune --omit=dev
 
 FROM node:22-alpine AS runner
 
 WORKDIR /app
+ENV NODE_ENV=production
 
-COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
+COPY --from=builder /app/apps/server/dist ./apps/server/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 
 EXPOSE 4000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "apps/server/dist/index.js"]

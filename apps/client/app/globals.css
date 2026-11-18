@@ -44,6 +44,10 @@
   --tint-4: #fbe3d8;
   --panel: #fbfaf6;
   --shadow-pop: 6px 6px 0 0 #0e0e0e;
+  /* System font stacks keep the build independent of external font downloads. */
+  --font-inter: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-inter-tight: "Arial Narrow", Arial, "Helvetica Neue", sans-serif;
+  --font-jetbrains: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   color-scheme: light;
 }
 

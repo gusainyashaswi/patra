@@ -19,7 +19,7 @@ import {
 import Link from "next/link";
 import { api } from "@/lib/api";
 
-const providerMeta = { RESEND: "Resend", SMTP: "SMTP", SES: "Amazon SES" };
+const providerMeta = { RESEND: "Resend" };
 const EMPTY_TRANSPORT = { name: "", key: "" };
 
 function Row({ icon, title, meta, right, children }) {
