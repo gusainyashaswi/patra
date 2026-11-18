@@ -66,7 +66,6 @@ export const Domain = model<IDomain>("Domain", domainSchema);
 
 export interface ISenderIdentity {
   organizationId: Types.ObjectId;
-  transportId: Types.ObjectId;
   domainId: Types.ObjectId;
   displayName: string;
   fromEmail: string;
@@ -82,7 +81,6 @@ const senderIdentitySchema = new Schema<ISenderIdentity>(
       required: true,
       index: true,
     },
-    transportId: { type: Schema.Types.ObjectId, ref: "MailTransport", required: true },
     domainId: { type: Schema.Types.ObjectId, ref: "Domain", required: true },
     displayName: { type: String, required: true },
     fromEmail: { type: String, required: true, lowercase: true, trim: true },

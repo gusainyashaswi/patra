@@ -160,7 +160,6 @@ export async function seedTestContext(): Promise<SeededContext> {
 
   const sender = await SenderIdentity.create({
     organizationId: org._id,
-    transportId: transport._id,
     domainId: domain._id,
     displayName: "Test Sender",
     fromEmail: "newsletter@example.com",

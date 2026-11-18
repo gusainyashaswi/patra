@@ -52,7 +52,6 @@ senderRouter.post(
     const data = await SenderIdentity.create({
       ...input,
       organizationId,
-      transportId: domain.transportId,
     });
     res.status(201).json({ data });
   }),

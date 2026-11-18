@@ -23,6 +23,11 @@ const schema = z.object({
   ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/i).optional(),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   RESEND_WEBHOOK_SECRET: z.string().startsWith("whsec_").optional(),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("auto"),
+  S3_BUCKET: z.string().min(1).optional(),
+  S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+  S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
 });
 
 const parsed = schema.parse(process.env);
@@ -64,4 +69,9 @@ export const env = {
   ENCRYPTION_KEY: credentialsKey,
   CORS_ORIGIN: parsed.CORS_ORIGIN,
   RESEND_WEBHOOK_SECRET: parsed.RESEND_WEBHOOK_SECRET,
+  S3_ENDPOINT: parsed.S3_ENDPOINT,
+  S3_REGION: parsed.S3_REGION,
+  S3_BUCKET: parsed.S3_BUCKET,
+  S3_ACCESS_KEY_ID: parsed.S3_ACCESS_KEY_ID,
+  S3_SECRET_ACCESS_KEY: parsed.S3_SECRET_ACCESS_KEY,
 };

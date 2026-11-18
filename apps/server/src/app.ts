@@ -23,11 +23,8 @@ app.use(
 // Svix signs the exact bytes sent by Resend, so this must run before JSON parsing.
 app.use("/api/webhooks", express.raw({ type: "application/json", limit: "1mb" }), webhookRouter);
 
-const parseJson = express.json({ limit: "16kb" });
-app.use((req, res, next) => {
-  if (/^\/api\/orgs\/[^/]+\/templates(?:\/|$)/i.test(req.path)) return next();
-  parseJson(req, res, next);
-});
+// Template drafts are the largest JSON requests; use one predictable limit for every API route.
+app.use(express.json({ limit: "768kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser());
 app.use("/api/public", publicRouter);

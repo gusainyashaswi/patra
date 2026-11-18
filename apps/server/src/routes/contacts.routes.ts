@@ -1,4 +1,5 @@
 import express, { Router } from "express";
+import multer from "multer";
 import { Types, type PipelineStage } from "mongoose";
 import { z } from "zod";
 import { objectId } from "../middleware/orgAccess.js";
@@ -13,8 +14,23 @@ export const listRouter = Router({ mergeParams: true });
 contactRouter.use(requirePermission("manage_contacts"));
 listRouter.use(requirePermission("manage_contacts"));
 
-const upload = express.raw({ type: "application/octet-stream", limit: "5mb", inflate: false });
-const importQuery = z.object({ filename: z.string().min(1).max(255) });
+const importMimeTypes = [
+  "application/octet-stream",
+  "text/csv",
+  "application/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+const multipartImport = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    callback(null, importMimeTypes.includes(file.mimetype));
+  },
+});
+const rawImport = express.raw({ type: importMimeTypes, limit: "5mb", inflate: false });
+const importUpload = [multipartImport.single("file"), rawImport];
+const importQuery = z.object({ filename: z.string().min(1).max(255).optional() });
 const commitQuery = importQuery.extend({
   requestId: z.string().uuid(),
   listId: objectId.optional(),
@@ -22,14 +38,20 @@ const commitQuery = importQuery.extend({
   duplicateMode: z.enum(["skip", "update"]).default("update"),
 }).refine((options) => Boolean(options.listId) !== Boolean(options.listName), "Choose an existing list or enter a new list name.");
 
-function importBytes(body: unknown): Buffer {
-  if (!Buffer.isBuffer(body)) throw new ApiError(400, "Upload a CSV or Excel file.");
-  return body;
+function importInput(req: express.Request): { filename: string; bytes: Buffer } {
+  const { filename: queryFilename } = importQuery.parse(req.query);
+  if (req.file) {
+    const filename = queryFilename ?? req.file.originalname;
+    if (!filename) throw new ApiError(400, "The uploaded file needs a filename.");
+    return { filename, bytes: req.file.buffer };
+  }
+  if (!queryFilename || !Buffer.isBuffer(req.body)) throw new ApiError(400, "Upload a CSV or Excel file.");
+  return { filename: queryFilename, bytes: req.body };
 }
 
-contactRouter.post("/import/preview", upload, asyncHandler(async (req, res) => {
-  const { filename } = importQuery.parse(req.query);
-  const result = await analyzeImport(req.user!.organizationId!, filename, importBytes(req.body));
+contactRouter.post("/import/preview", ...importUpload, asyncHandler(async (req, res) => {
+  const { filename, bytes } = importInput(req);
+  const result = await analyzeImport(req.user!.organizationId!, filename, bytes);
   const counts = {
     valid: result.ready.length,
     invalid: result.invalid.length,
@@ -46,10 +68,11 @@ contactRouter.post("/import/preview", upload, asyncHandler(async (req, res) => {
   } });
 }));
 
-contactRouter.post("/import", upload, asyncHandler(async (req, res) => {
+contactRouter.post("/import", ...importUpload, asyncHandler(async (req, res) => {
   const options = commitQuery.parse(req.query);
   const organizationId = req.user!.organizationId!;
-  const result = await analyzeImport(organizationId, options.filename, importBytes(req.body));
+  const { filename, bytes } = importInput(req);
+  const result = await analyzeImport(organizationId, filename, bytes);
   res.status(201).json({ data: await saveImport(organizationId, result, options) });
 }));
 
@@ -60,9 +83,9 @@ function csvCell(value: string | number) {
   return '"' + safe.replace(/"/g, '""') + '"';
 }
 
-contactRouter.post("/import/rejected", upload, asyncHandler(async (req, res) => {
-  const { filename } = importQuery.parse(req.query);
-  const result = await analyzeImport(req.user!.organizationId!, filename, importBytes(req.body));
+contactRouter.post("/import/rejected", ...importUpload, asyncHandler(async (req, res) => {
+  const { filename, bytes } = importInput(req);
+  const result = await analyzeImport(req.user!.organizationId!, filename, bytes);
   const rows = [...result.invalid, ...result.duplicate, ...result.suppressed].sort((a, b) => a.line - b.line);
   const csv = rows.map(({ line, email, name, reason }) => [line, email, name, reason].map(csvCell).join(",")).join("\r\n");
   res.type("text/csv").attachment("skipped-contacts.csv").send("Row,Email,Name,Reason\r\n" + csv);

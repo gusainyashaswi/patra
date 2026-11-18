@@ -1,6 +1,6 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { CampaignRecipient, Campaign } from "../models/campaign.model.js";
-import { SenderIdentity } from "../models/mailTransport.model.js";
+import { Domain, SenderIdentity } from "../models/mailTransport.model.js";
 import { getRedisConnection } from "../lib/redis.js";
 import { getSendQueue } from "./send.queue.js";
 import { RECONCILE_QUEUE_NAME, RECONCILE_JOB_NAME } from "./names.js";
@@ -32,9 +32,17 @@ export async function reconcileOrphanedRecipients(
   const campaignsById = new Map(campaigns.map((campaign) => [campaign._id.toString(), campaign]));
   const senderIds = [...new Set(campaigns.map((campaign) => campaign.senderIdentityId.toString()))];
   const senders = senderIds.length
-    ? await SenderIdentity.find({ _id: { $in: senderIds } }).select("_id transportId").lean()
+    ? await SenderIdentity.find({ _id: { $in: senderIds } }).select("_id domainId").lean()
     : [];
-  const transportBySenderId = new Map(senders.map((sender) => [sender._id.toString(), sender.transportId.toString()]));
+  const domainIds = [...new Set(senders.map((sender) => sender.domainId.toString()))];
+  const domains = domainIds.length
+    ? await Domain.find({ _id: { $in: domainIds } }).select("_id transportId").lean()
+    : [];
+  const transportByDomainId = new Map(domains.map((domain) => [domain._id.toString(), domain.transportId.toString()]));
+  const transportBySenderId = new Map(senders.map((sender) => [
+    sender._id.toString(),
+    transportByDomainId.get(sender.domainId.toString()),
+  ]));
 
   const recipientsByTransport = new Map<string, typeof orphans>();
   for (const recipient of orphans) {

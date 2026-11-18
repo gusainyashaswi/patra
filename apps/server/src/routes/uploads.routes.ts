@@ -6,12 +6,13 @@ import { ensureDbConnected } from "../middleware/ensureDb.js";
 import { requirePermission } from "../middleware/requirePermission.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { readImage, storeImage } from "../services/objectStorage.service.js";
 
 const ImageAsset = model("ImageAsset", new Schema({
   key: { type: String, required: true, unique: true },
   organizationId: { type: Schema.Types.ObjectId, required: true, index: true },
   mime: { type: String, required: true },
-  bytes: { type: Buffer, required: true },
+  objectKey: { type: String, required: true, unique: true },
 }, { timestamps: true }));
 
 export const uploadRouter = Router({ mergeParams: true });
@@ -26,7 +27,14 @@ uploadRouter.post("/", requirePermission("manage_templates"),
     const mime = png ? "image/png" : jpeg ? "image/jpeg" : undefined;
     if (!mime || !req.is(mime)) throw new ApiError(400, "The file contents must match its PNG or JPEG type.");
     const key = randomUUID();
-    await ImageAsset.create({ key, organizationId: req.user!.organizationId, mime, bytes });
+    const objectKey = `images/${req.user!.organizationId}/${key}`;
+    await storeImage(objectKey, bytes, mime);
+    try {
+      await ImageAsset.create({ key, organizationId: req.user!.organizationId, mime, objectKey });
+    } catch (error) {
+      // The object is harmlessly orphaned if Mongo is unavailable; never store image bytes in Mongo as a fallback.
+      throw error;
+    }
     res.status(201).json({ data: { path: `/uploads/${key}` } });
   }),
 );
@@ -41,5 +49,5 @@ publicImageRouter.get("/:key", ensureDbConnected, asyncHandler(async (req, res) 
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
     "Cache-Control": "public, max-age=31536000, immutable",
-  }).send(image.bytes);
+  }).send(Buffer.from(await readImage(image.objectKey)));
 }));

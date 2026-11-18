@@ -1,6 +1,7 @@
 import express, { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import mongoose from "mongoose";
 import { resourceParams, objectId } from "../middleware/orgAccess.js";
 import { requirePermission } from "../middleware/requirePermission.js";
 import { Template, TemplateVersion, type ITemplate } from "../models/template.model.js";
@@ -85,18 +86,44 @@ templateRouter.post("/:id/publish", asyncHandler(async (req, res) => {
   checkRevision(template, revision);
   const draft = draftSchema.parse(template.draftBlocks);
   const compiled = compileTemplate(draft);
-  const latest = await latestVersion(template);
-  if (latest?.draftRevision === revision) return res.json({ data: latest });
+  let publishedVersion;
+  let alreadyPublished = false;
+  const session = await mongoose.startSession();
   try {
-    const version = await TemplateVersion.create({
-      ...compiled, blocks: draft.blocks, templateId: template._id, organizationId: template.organizationId,
-      version: (latest?.version ?? 0) + 1, draftRevision: revision,
+    await session.withTransaction(async () => {
+      const lockedTemplate = await Template.findOneAndUpdate(
+        { _id: template._id, organizationId: template.organizationId, draftRevision: revision },
+        { $set: { status: "PUBLISHED" } },
+        { new: true, session },
+      );
+      if (!lockedTemplate) throw new ApiError(409, "This draft changed elsewhere. Reopen it before continuing.");
+
+      const latest = await TemplateVersion.findOne({
+        templateId: lockedTemplate._id,
+        organizationId: lockedTemplate.organizationId,
+      }).sort({ version: -1 }).session(session);
+      if (latest?.draftRevision === revision) {
+        publishedVersion = latest;
+        alreadyPublished = true;
+        return;
+      }
+      const [version] = await TemplateVersion.create([{
+        ...compiled,
+        blocks: draft.blocks,
+        templateId: lockedTemplate._id,
+        organizationId: lockedTemplate.organizationId,
+        version: (latest?.version ?? 0) + 1,
+        draftRevision: revision,
+      }], { session });
+      publishedVersion = version;
     });
-    res.status(201).json({ data: version });
   } catch (error) {
     if ((error as { code?: number }).code !== 11000) throw error;
     throw new ApiError(409, "A version was just published. Reopen the draft and try again.");
+  } finally {
+    await session.endSession();
   }
+  res.status(alreadyPublished ? 200 : 201).json({ data: publishedVersion });
 }));
 
 templateRouter.post("/:id/test-send", requirePermission("send_campaigns"), asyncHandler(async (req, res) => {
