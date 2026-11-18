@@ -54,3 +54,6 @@ Thumbs.db
 .claude/
 .agents/skills/
 .windsurf/skills/
+
+# Generated local problem-tracker artifacts
+/outputs/problem-tracker-*/
