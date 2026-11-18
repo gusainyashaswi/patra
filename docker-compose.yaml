@@ -1,61 +1,73 @@
+# Local development only: database ports are bound to loopback.
+x-api: &api
+  build:
+    context: .
+    dockerfile: apps/server/Dockerfile
+  env_file: ${PATRA_ENV_FILE:-.env}
+  environment: &api-env
+    NODE_ENV: development
+    PORT: 5001
+    MONGODB_URI: mongodb://mongo:27017/patra?replicaSet=rs0
+    REDIS_URL: redis://redis:6379
+    API_URL: http://localhost:5001
+    CORS_ORIGIN: http://localhost:3000
+  depends_on:
+    mongo-init:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
 services:
-  redis:
-    image: redis:latest
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
-
   mongo:
     image: mongo:7
-    container_name: patra-mongo
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: patra
-      MONGO_INITDB_ROOT_PASSWORD: patra
-      MONGO_INITDB_DATABASE: patra
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports: ["127.0.0.1:27017:27017"]
+    volumes: ["mongo_data:/data/db"]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok || quit(1)"]
       interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+      retries: 20
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        mongosh --host mongo --quiet --eval 'try { rs.status() } catch(e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongo:27017"}]}) }';
+        until mongosh --host mongo --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'; do sleep 2; done
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
   server:
-    build:
-      context: ./apps/server
-      dockerfile: Dockerfile
-    ports:
-      - "4000:4000"
-    environment:
-      NODE_ENV: production
-      PORT: 4000
-      MONGODB_URI: mongodb://patra:patra@mongo:27017/patra?authSource=admin
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
+    <<: *api
+    ports: ["127.0.0.1:5001:5001"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5001/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      retries: 10
   worker:
-    build:
-      context: ./apps/server
-      dockerfile: Dockerfile
-    command: ["node", "dist/worker.js"]
+    <<: *api
+    command: ["node", "apps/server/dist/worker.js"]
     stop_grace_period: 30s
-    environment:
-      NODE_ENV: production
-      MONGODB_URI: mongodb://patra:patra@mongo:27017/patra?authSource=admin
-      REDIS_URL: redis://redis:6379
+  client:
+    build:
+      context: .
+      dockerfile: apps/client/Dockerfile
+    ports: ["127.0.0.1:3000:3000"]
     depends_on:
-      mongo:
+      server:
         condition: service_healthy
-      redis:
-        condition: service_started
-
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      retries: 10
 volumes:
   mongo_data:
+  redis_data:

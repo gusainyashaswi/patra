@@ -1,22 +1,17 @@
-FROM node:22-alpine AS builder
-
+FROM node:22-alpine AS build
 WORKDIR /app
-
-COPY package.json package-lock.json* ./
-RUN npm ci
-
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
-
-FROM node:22-alpine AS runner
-
+COPY package.json package-lock.json ./
+COPY apps/server/package.json apps/server/package.json
+COPY apps/client/package.json apps/client/package.json
+RUN npm ci --ignore-scripts
+COPY apps/server apps/server
+RUN npm run build --workspace=server && npm prune --omit=dev --workspace=server
+FROM node:22-alpine
 WORKDIR /app
-
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-
-EXPOSE 4000
-
-CMD ["node", "dist/index.js"]
+ENV NODE_ENV=production
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/server/package.json ./apps/server/package.json
+COPY --from=build /app/apps/server/dist ./apps/server/dist
+USER node
+EXPOSE 5001
+CMD ["node", "apps/server/dist/index.js"]

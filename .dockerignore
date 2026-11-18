@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/.next
+**/dist
+**/.env
+.env
+*.log
+PROJECT_CONTEXT.md
+PROJECT_STATUS_AND_DB_ANALYSIS.md

@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import { webhookRouter } from "./routes/webhooks.routes.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -42,6 +43,10 @@ app.get("/health", (_req, res) => {
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
+});
+
+app.get("/api/ready", (_req, res) => {
+  res.status(mongoose.connection.readyState === 1 ? 200 : 503).json({ ready: mongoose.connection.readyState === 1 });
 });
 
 // API Routes
