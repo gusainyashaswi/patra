@@ -25,14 +25,23 @@ let refreshing: Promise<void> | undefined;
 
 const demoCampaigns = campaigns.map((campaign) => ({ ...campaign, counters: { totalRecipients: campaign.counters.total, sentCount: campaign.counters.sent + campaign.counters.delivered, deliveredCount: campaign.counters.delivered, bouncedCount: campaign.counters.bounced, failedCount: campaign.counters.failed } }));
 const inDemoMode = () => typeof document !== "undefined" && document.cookie.includes("patra-demo=1");
+const demoOverview = (period: string) => {
+  const samples = {
+    "7d": { sent: 1974, delivered: 1277, bounced: 24, failed: 9, opened: 976, pending: 412, days: ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"], deliveredSeries: [112, 322, 198, 84, 604, 170, 380], bouncedSeries: [3, 6, 4, 2, 9, 3, 7], failedSeries: [1, 2, 1, 0, 3, 1, 1] },
+    "30d": { sent: 8227, delivered: 7040, bounced: 96, failed: 31, opened: 4818, pending: 412, days: ["W1", "W2", "W3", "W4", "Now"], deliveredSeries: [1112, 1560, 1378, 1750, 1240], bouncedSeries: [15, 21, 18, 25, 17], failedSeries: [5, 7, 6, 8, 5] },
+    "90d": { sent: 24816, delivered: 21409, bounced: 291, failed: 102, opened: 14862, pending: 412, days: ["Aug", "Sep", "Oct", "Nov"], deliveredSeries: [4920, 5612, 6124, 4753], bouncedSeries: [72, 81, 79, 59], failedSeries: [28, 31, 27, 16] },
+  } as const;
+  const sample = samples[period as keyof typeof samples] ?? samples["30d"];
+  return { period, stats: { sent: sample.sent, delivered: sample.delivered, bounced: sample.bounced, failed: sample.failed, opened: sample.opened, pending: sample.pending }, series: { days: sample.days, delivered: sample.deliveredSeries, bounced: sample.bouncedSeries, failed: sample.failedSeries }, campaigns: demoCampaigns, setup: [], alerts: [] };
+};
 function demoData(path: string, method: string): unknown | undefined {
-  const [pathname] = path.split("?");
+  const [pathname, query] = path.split("?");
   if (pathname === "/auth/me") return me;
   if (pathname === "/orgs") return [org];
   const match = pathname.match(/^\/orgs\/[^/]+(.*)$/);
   if (!match) return undefined;
   const resource = match[1] || "/";
-  if (resource === "/overview") return { period: "7d", stats: { sent: 1974, delivered: 1277, bounced: 24, failed: 9, opened: 976, pending: 412 }, series: { days: ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"], delivered: [112, 322, 198, 84, 604, 170, 380], bounced: [3, 6, 4, 2, 9, 3, 7], failed: [1, 2, 1, 0, 3, 1, 1] }, campaigns: demoCampaigns, setup: [], alerts: [] };
+  if (resource === "/overview") return demoOverview(new URLSearchParams(query).get("period") ?? "30d");
   if (resource === "/campaigns") return method === "GET" ? demoCampaigns : demoCampaigns[0];
   const campaign = resource.match(/^\/campaigns\/([^/]+)(?:\/(recipients|pause|resume|send))?$/);
   if (campaign) { const row = demoCampaigns.find((item) => item.id === campaign[1]) ?? demoCampaigns[0]; if (campaign[2] === "recipients") return { rows: recipientsFor(row).map((recipient) => ({ ...recipient, status: recipient.status === "PENDING" ? "QUEUED" : recipient.status })), total: 40, page: 0, limit: 100 }; return row; }

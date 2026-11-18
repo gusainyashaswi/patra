@@ -45,7 +45,7 @@ function Kpi({ label, value, sub, delta, highlight, href }) {
         <span className="label text-subtle">{label}</span>
         {delta}
       </div>
-      <div className={cx("display tabular mt-2.5 text-[28px] xl:text-[36px]", highlight && "text-accent-ink")}>{value}</div>
+      <div className={cx("display tabular mt-2 text-[30px] tracking-[-0.045em] xl:text-[38px]", highlight && "text-accent-ink")}>{value}</div>
       <div className="mt-1 truncate text-[14px] text-subtle">{sub}</div>
     </>
   );
@@ -141,23 +141,29 @@ function Overview({ workspace }) {
   }, [workspace, period]);
   const data = result?.period === period ? result : null;
   const nextStep = data?.setup.find(step => !step.done);
+  const deliveryRate = data?.stats.sent ? fmt.pct(data.stats.delivered, data.stats.sent) : "—";
+  const bounceRate = data?.stats.sent ? fmt.pct(data.stats.bounced, data.stats.sent) : "—";
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:gap-4">
-      <header className="flex shrink-0 flex-wrap items-end justify-between gap-4">
-        <div className="border-l-[3px] border-accent pl-4">
-          <p className="label text-subtle">{workspace.org.name} · UTC reporting</p>
-          <h1 className="display mt-1.5 text-[36px]">Overview</h1>
+      <header className="flex shrink-0 flex-wrap items-end justify-between gap-5 border-b border-line pb-6">
+        <div>
+          <p className="label text-accent-ink">Delivery health</p>
+          <h1 className="display mt-2 text-[40px] sm:text-[48px]">Overview</h1>
+          <p className="mt-2 text-[15px] text-muted">{workspace.org.name} · updated from your selected reporting window</p>
         </div>
         <Segmented label="Period" size="sm" value={period} onChange={setPeriod} options={[{ value: "7d", label: "7 days" }, { value: "30d", label: "30 days" }, { value: "90d", label: "90 days" }]} />
       </header>
       {error && <p role="alert" className="text-danger">{error} {data && "Showing the last available results."}</p>}
       {!data ? <p role="status">{error ? "Overview unavailable." : "Loading overview…"}</p> : <>
-        <section aria-label="Email statistics" className="grid shrink-0 grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {["sent", "delivered", "bounced", "failed", "pending"].map(key => <Kpi key={key} label={key === "pending" ? "In queue" : key} value={fmt.n(data.stats[key])} sub={`Last ${period.slice(0, -1)} days`} href="/campaigns" />)}
+        <section aria-label="Email statistics" className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
+          <Kpi label="Sent" value={fmt.n(data.stats.sent)} sub={`Last ${period.slice(0, -1)} days`} href="/campaigns" />
+          <Kpi label="Delivery rate" value={deliveryRate} sub={`${fmt.n(data.stats.delivered)} delivered`} highlight href="/campaigns" />
+          <Kpi label="Bounce rate" value={bounceRate} sub={`${fmt.n(data.stats.bounced)} bounced`} href="/campaigns" />
+          <Kpi label="In queue" value={fmt.n(data.stats.pending)} sub="Waiting to send" highlight={data.stats.pending > 0} href="/campaigns" />
         </section>
         {nextStep && <Link href={nextStep.href} className="border border-line bg-panel px-5 py-3 text-[15px]">Setup {data.setup.filter(step => step.done).length}/{data.setup.length} · {nextStep.label} →</Link>}
         <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[1.5fr_1fr]">
-          <Panel title="Delivery events" action={<span className="label text-subtle">UTC</span>} className="min-h-[220px] lg:min-h-0">
+          <Panel title="Delivery events" action={<span className="label text-subtle">{period.toUpperCase()} · UTC</span>} className="min-h-[250px] lg:min-h-0">
             <SendsChart p={data.series} />
           </Panel>
           <div className="flex min-w-0 flex-col gap-4 lg:min-h-0">
