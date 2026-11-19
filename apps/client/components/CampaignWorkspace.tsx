@@ -7,8 +7,12 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspace, workspaceRequest } from "@/lib/workspace-api";
 import { Button, Card, Dialog, Field, Input, PageHeader, Select, StatusBadge, Table, Td, Th } from "./ui";
+import type { Campaign, CampaignEstimate, CampaignForm, CampaignOptions, PaginatedRecipients } from "@/types/client";
+import type { Workspace } from "@/lib/workspace-api";
 
-export default function CampaignWorkspace({ id, create = false }) {
+interface CampaignWorkspaceProps { id?: string; create?: boolean; }
+
+export default function CampaignWorkspace({ id, create = false }: CampaignWorkspaceProps) {
   const { workspace, error } = useWorkspace();
   if (error) return <p role="alert" className="text-danger">{error.message}</p>;
   if (workspace === undefined) return <p role="status">Loading workspace…</p>;
@@ -16,19 +20,21 @@ export default function CampaignWorkspace({ id, create = false }) {
   return <CampaignContent key={workspace.org.id + (id ?? "")} workspace={workspace} id={id} create={create} />;
 }
 
-function CampaignContent({ workspace, id, create }) {
+interface CampaignContentProps { workspace: Workspace; id?: string; create: boolean; }
+
+function CampaignContent({ workspace, id, create }: CampaignContentProps) {
   const router = useRouter();
-  const [data, setData] = useState(null);
-  const [options, setOptions] = useState(null);
-  const [recipients, setRecipients] = useState(null);
+  const [data, setData] = useState<Campaign | Campaign[] | null>(null);
+  const [options, setOptions] = useState<CampaignOptions | null>(null);
+  const [recipients, setRecipients] = useState<PaginatedRecipients | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("active");
-  const [estimate, setEstimate] = useState(null);
-  const [form, setForm] = useState({ name: "", templateVersionId: "", senderIdentityId: "", listId: "" });
+  const [estimate, setEstimate] = useState<{ result: CampaignEstimate; form?: CampaignForm } | null>(null);
+  const [form, setForm] = useState<CampaignForm>({ name: "", templateVersionId: "", senderIdentityId: "", listId: "" });
   const inFlight = useRef(false);
   const { revision, connected } = useCampaignStream(workspace, create ? null : id);
   const live = useRef(false);
@@ -42,12 +48,12 @@ function CampaignContent({ workspace, id, create }) {
     async function load() {
       try {
         if (create) {
-          const result = await workspaceRequest(workspace, "/campaigns/options");
+          const result = await workspaceRequest<CampaignOptions>(workspace, "/campaigns/options");
           if (active) setOptions(result);
         } else {
           const [campaign, rows] = await Promise.all([
-            workspaceRequest(workspace, id ? `/campaigns/${id}` : "/campaigns"),
-            id ? workspaceRequest(workspace, `/campaigns/${id}/recipients?${query}`) : null,
+            workspaceRequest<Campaign | Campaign[]>(workspace, id ? `/campaigns/${id}` : "/campaigns"),
+            id ? workspaceRequest<PaginatedRecipients>(workspace, `/campaigns/${id}/recipients?${query}`) : null,
           ]);
           if (active) { setData(campaign); setRecipients(rows); }
         }
@@ -64,8 +70,8 @@ function CampaignContent({ workspace, id, create }) {
     let active = true;
     const timer = setTimeout(() => {
       workspaceRequest(workspace, "/campaigns/estimate", { method: "POST", body: form }).then(
-        result => { if (active) setEstimate({ result, form }); },
-        error => { if (active) { setEstimate(null); setError(error.message); } },
+        (result: CampaignEstimate) => { if (active) setEstimate({ result, form }); },
+        (error: Error) => { if (active) { setEstimate(null); setError(error.message); } },
       );
     }, 250);
     return () => { active = false; clearTimeout(timer); };
@@ -83,20 +89,20 @@ function CampaignContent({ workspace, id, create }) {
     finally { setBusy(false); }
   }
 
-  async function save(event) {
+  async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
     setError("");
     try {
-      const draft = await workspaceRequest(workspace, "/campaigns", { method: "POST", body: form });
+      const draft = await workspaceRequest<Campaign>(workspace, "/campaigns", { method: "POST", body: form });
       router.push(detailUrl(draft.id));
     } catch (error) { setError(error.message); }
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  async function action(name) {
+  async function action(name: string) {
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
@@ -104,11 +110,11 @@ function CampaignContent({ workspace, id, create }) {
     try {
       await workspaceRequest(workspace, `/campaigns/${id}/${name}`, { method: "POST" });
       setConfirm(false);
-      setData(await workspaceRequest(workspace, `/campaigns/${id}`));
+      setData(await workspaceRequest<Campaign>(workspace, `/campaigns/${id}`));
     } catch (error) {
       setError(error.message);
       // A request may have committed before its response was lost.
-      try { setData(await workspaceRequest(workspace, `/campaigns/${id}`)); } catch {}
+      try { setData(await workspaceRequest<Campaign>(workspace, `/campaigns/${id}`)); } catch {}
     } finally { setBusy(false); inFlight.current = false; }
   }
 
@@ -116,7 +122,7 @@ function CampaignContent({ workspace, id, create }) {
     setBusy(true);
     setError("");
     try {
-      const result = await workspaceRequest(workspace, "/campaigns/estimate", { method: "POST", body: data });
+      const result = await workspaceRequest<CampaignEstimate>(workspace, "/campaigns/estimate", { method: "POST", body: data as Record<string, unknown> });
       setEstimate({ result });
       setConfirm(true);
     } catch (error) { setError(error.message); }
@@ -131,7 +137,7 @@ function CampaignContent({ workspace, id, create }) {
   }) : [];
   return (
     <>
-      <PageHeader title={create ? "New campaign" : id ? data?.name ?? "Campaign" : "Campaigns"}
+      <PageHeader title={create ? "New campaign" : id && data && !Array.isArray(data) ? data.name : "Campaigns"}
         back={id || create ? { href: "/campaigns", label: "Campaigns" } : undefined}
         description={create ? "Choose a published version, verified sender, and saved audience." : undefined}
         actions={!id && !create ? <Button href={`/campaigns/new?org=${workspace.org.id}`}>New campaign</Button> : undefined} />
@@ -202,7 +208,7 @@ function CampaignContent({ workspace, id, create }) {
   );
 }
 
-function Estimate({ value }) {
+function Estimate({ value }: { value: CampaignEstimate }) {
   return <dl className="grid grid-cols-2 gap-3 border-y border-line py-4">
     {[[value.total, "In audience"], [value.suppressed, "Suppressed"], [value.missing, "Missing required fields"], [value.eligible, "Eligible to send"]].map(([count, label]) => (
       <div key={label}><dt className="text-sm text-muted">{label}</dt><dd className="mt-1 text-2xl font-semibold">{count}</dd></div>

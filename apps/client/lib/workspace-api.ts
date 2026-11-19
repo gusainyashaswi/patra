@@ -39,7 +39,8 @@ export function useWorkspace({ demo = false }: { demo?: boolean } = {}): { works
   return { workspace, error };
 }
 
-export async function workspaceRequest<T>(workspace: Workspace, path: string, options?: Parameters<typeof api>[1]): Promise<T> {
+// TODO(types): API route responses are endpoint-specific; callers supply concrete types where available.
+export async function workspaceRequest<T = any>(workspace: Workspace, path: string, options?: Parameters<typeof api>[1]): Promise<T> {
   const { data } = await api<T>(`/orgs/${workspace.org.id}${path}`, options);
   return data;
 }

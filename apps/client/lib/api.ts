@@ -15,6 +15,7 @@ export interface ApiOptions {
   body?: BodyInit | Record<string, unknown>;
   responseType?: "blob" | "stream";
   signal?: AbortSignal;
+  token?: string;
 }
 
 export class ApiClientError extends Error {

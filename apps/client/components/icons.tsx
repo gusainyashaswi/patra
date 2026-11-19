@@ -1,7 +1,11 @@
+import type { ReactElement, SVGProps } from "react";
+
 // Minimal 1.5px-stroke icon set (Lucide-style geometry), no dependency.
 // Decorative by default (aria-hidden); pair with visible text or an aria-label on the parent.
 
-function Svg({ size = 16, className = "", children, ...rest }) {
+type IconProps = SVGProps<SVGSVGElement> & { size?: number };
+
+function Svg({ size = 16, className = "", children, ...rest }: IconProps) {
   return (
     <svg
       width={size}
@@ -21,7 +25,7 @@ function Svg({ size = 16, className = "", children, ...rest }) {
   );
 }
 
-export const Icon = {
+export const Icon: Record<string, (props: IconProps) => ReactElement> = {
   Home: (p) => <Svg {...p}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></Svg>,
   Send: (p) => <Svg {...p}><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7Z" /></Svg>,
   Layout: (p) => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></Svg>,
@@ -74,7 +78,7 @@ export const Icon = {
 };
 
 // Patra wordmark: heavy display type in the accent, like the reference's FILEDROP mark.
-export function Logo({ size = 26, className = "" }) {
+export function Logo({ size = 26, className = "" }: { size?: number; className?: string }) {
   return (
     <span
       className={`display select-none text-accent ${className}`}

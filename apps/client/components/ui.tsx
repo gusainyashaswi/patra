@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Icon } from "./icons";
 
-export function cx(...parts) {
+// TODO(types): these primitives deliberately forward the full DOM/link prop surface.
+type DynamicProps = { [key: string]: any };
+
+export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
@@ -26,7 +29,7 @@ const buttonSizes = {
   "icon-sm": "h-9 w-9 justify-center",
 };
 
-export function Button({ variant = "primary", size = "md", href, loading = false, className, children, disabled, ...rest }) {
+export function Button({ variant = "primary", size = "md", href, loading = false, className, children, disabled, ...rest }: DynamicProps) {
   const isIcon = size.startsWith("icon");
   const cls = cx(
     "inline-flex items-center justify-center whitespace-nowrap cursor-pointer select-none",
@@ -55,7 +58,7 @@ export function Button({ variant = "primary", size = "md", href, loading = false
 /* ---------- Surfaces ---------- */
 
 // tone: "plain" (hairline), "ruled" (hard ink border), "ink" (solid black block), "accent" (solid orange)
-export function Card({ tone = "plain", className, children, ...rest }) {
+export function Card({ tone = "plain", className, children, ...rest }: DynamicProps) {
   const tones = {
     plain: "border border-line bg-surface",
     ruled: "border-2 border-line-strong bg-surface",
@@ -69,7 +72,7 @@ export function Card({ tone = "plain", className, children, ...rest }) {
   );
 }
 
-export function CardHeader({ title, description, action, className }) {
+export function CardHeader({ title, description, action, className }: DynamicProps) {
   return (
     <div className={cx("flex items-start justify-between gap-6 px-7 pt-7 pb-4", className)}>
       <div className="min-w-0">
@@ -82,7 +85,7 @@ export function CardHeader({ title, description, action, className }) {
 }
 
 // Section heading inside a page: big grotesk title + mono kicker, ink rule on the left.
-export function SectionTitle({ title, kicker, action, className }) {
+export function SectionTitle({ title, kicker, action, className }: DynamicProps) {
   return (
     <div className={cx("mb-6 flex items-end justify-between gap-6", className)}>
       <div className="border-l-[3px] border-line-strong pl-4">
@@ -94,7 +97,7 @@ export function SectionTitle({ title, kicker, action, className }) {
   );
 }
 
-export function PageHeader({ title, description, actions, back, kicker }) {
+export function PageHeader({ title, description, actions, back, kicker }: DynamicProps) {
   return (
     <div className="mb-12 flex flex-col gap-6 sm:mb-14 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
@@ -128,7 +131,7 @@ const tones = {
   accent: "bg-accent text-on-accent",
 };
 
-export function Badge({ tone = "neutral", dot = false, pulse = false, className, children }) {
+export function Badge({ tone = "neutral", dot = false, pulse = false, className, children }: DynamicProps) {
   return (
     <span
       className={cx(
@@ -167,7 +170,7 @@ export const STATUS = {
   ERROR: { tone: "danger", label: "Failing" },
 };
 
-export function StatusBadge({ status }) {
+export function StatusBadge({ status }: DynamicProps) {
   const s = STATUS[status] ?? { tone: "neutral", label: status };
   return (
     <Badge tone={s.tone} dot pulse={s.pulse}>
@@ -178,7 +181,7 @@ export function StatusBadge({ status }) {
 
 /* ---------- Forms ---------- */
 
-export function Field({ label, hint, error, children, optional, htmlFor }) {
+export function Field({ label, hint, error, children, optional, htmlFor }: DynamicProps) {
   return (
     <div className="flex flex-col gap-2">
       {label && (
@@ -205,15 +208,15 @@ const inputBase =
   "focus:outline-none focus:border-line-strong focus:bg-bg " +
   "aria-[invalid=true]:border-danger disabled:opacity-60";
 
-export function Input({ className, invalid, ...rest }) {
+export function Input({ className, invalid, ...rest }: DynamicProps) {
   return <input className={cx(inputBase, "h-12", className)} aria-invalid={invalid || undefined} {...rest} />;
 }
 
-export function Textarea({ className, ...rest }) {
+export function Textarea({ className, ...rest }: DynamicProps) {
   return <textarea className={cx(inputBase, "min-h-28 py-3 leading-relaxed", className)} {...rest} />;
 }
 
-export function Select({ className, children, ...rest }) {
+export function Select({ className, children, ...rest }: DynamicProps) {
   return (
     <div className="relative">
       <select className={cx(inputBase, "h-12 appearance-none pr-10 cursor-pointer", className)} {...rest}>
@@ -224,7 +227,7 @@ export function Select({ className, children, ...rest }) {
   );
 }
 
-export function SearchInput({ className, label = "Search", ...rest }) {
+export function SearchInput({ className, label = "Search", ...rest }: DynamicProps) {
   return (
     <div className={cx("relative", className)}>
       <Icon.Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-subtle" />
@@ -236,7 +239,7 @@ export function SearchInput({ className, label = "Search", ...rest }) {
 /* ---------- Segmented / tabs ----------
    Underline tabs: open, no boxes. */
 
-export function Segmented({ options, value, onChange, label, size = "md" }) {
+export function Segmented({ options, value, onChange, label, size = "md" }: DynamicProps) {
   return (
     <div role="tablist" aria-label={label} className="inline-flex flex-wrap gap-x-6 gap-y-2">
       {options.map((o) => {
@@ -267,7 +270,7 @@ export function Segmented({ options, value, onChange, label, size = "md" }) {
 /* ---------- Data display ---------- */
 
 // Big numeral + mono caption — the reference's "12MB / BINARY SIZE".
-export function Stat({ label, value, sub, tone }) {
+export function Stat({ label, value, sub, tone }: DynamicProps) {
   const color = { success: "text-success", danger: "text-danger", warning: "text-warning", accent: "text-accent-ink" }[tone];
   return (
     <div className="flex flex-col gap-2">
@@ -278,7 +281,7 @@ export function Stat({ label, value, sub, tone }) {
   );
 }
 
-export function Progress({ value, max = 100, segments, label, height = "h-3" }) {
+export function Progress({ value, max = 100, segments, label, height = "h-3" }: DynamicProps) {
   if (segments) {
     const total = segments.reduce((a, s) => a + s.value, 0) || 1;
     return (
@@ -304,7 +307,7 @@ export function Progress({ value, max = 100, segments, label, height = "h-3" }) 
   );
 }
 
-export function EmptyState({ icon, title, description, action }) {
+export function EmptyState({ icon, title, description, action }: DynamicProps) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
       <div className="mb-5 grid h-14 w-14 place-items-center border-2 border-line-strong text-fg">{icon}</div>
@@ -315,21 +318,21 @@ export function EmptyState({ icon, title, description, action }) {
   );
 }
 
-export function Table({ children, className }) {
+export function Table({ children, className }: DynamicProps) {
   return (
     <div className={cx("overflow-x-auto", className)}>
       <table className="w-full border-collapse text-left text-[15px]">{children}</table>
     </div>
   );
 }
-export function Th({ children, className, align }) {
+export function Th({ children, className, align }: DynamicProps) {
   return (
     <th scope="col" className={cx("label h-12 border-b-2 border-line-strong px-6 text-subtle", align === "right" && "text-right", className)}>
       {children}
     </th>
   );
 }
-export function Td({ children, className, align }) {
+export function Td({ children, className, align }: DynamicProps) {
   return (
     <td className={cx("h-[72px] border-b border-line px-6 align-middle", align === "right" && "text-right tabular", className)}>
       {children}
@@ -337,7 +340,7 @@ export function Td({ children, className, align }) {
   );
 }
 
-export function Kbd({ children }) {
+export function Kbd({ children }: DynamicProps) {
   return (
     <kbd className="inline-grid h-6 min-w-6 place-items-center border border-line-strong px-1.5 font-mono text-[12px] text-muted">
       {children}
@@ -347,8 +350,8 @@ export function Kbd({ children }) {
 
 /* ---------- Dialog ---------- */
 
-export function Dialog({ open, onClose, title, description, children, footer, size = "md" }) {
-  const ref = useRef(null);
+export function Dialog({ open, onClose, title, description, children, footer, size = "md" }: DynamicProps) {
+  const ref = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -362,7 +365,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     const focusables = () =>
       el?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [];
     focusables()[0]?.focus();
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
       if (e.key === "Tab") {
         const f = [...focusables()];
@@ -383,7 +386,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
-      prev?.focus?.();
+      if (prev instanceof HTMLElement) prev.focus();
     };
   }, [open]);
 
@@ -421,7 +424,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
 
 /* ---------- Toast ---------- */
 
-export function Toast({ message, tone = "success", onDone }) {
+export function Toast({ message, tone = "success", onDone }: DynamicProps) {
   const onDoneRef = useRef(onDone);
   useEffect(() => {
     onDoneRef.current = onDone;
@@ -443,17 +446,17 @@ export function Toast({ message, tone = "success", onDone }) {
   );
 }
 
-const ratio = (numerator, denominator) => (denominator > 0 ? numerator / denominator : null);
-const formatPercent = (numerator, denominator) => {
+const ratio = (numerator: number, denominator: number) => (denominator > 0 ? numerator / denominator : null);
+const formatPercent = (numerator: number, denominator: number) => {
   const value = ratio(numerator, denominator);
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
 };
 
 export const fmt = {
-  n: (v) => new Intl.NumberFormat("en-US").format(v),
+  n: (v: number) => new Intl.NumberFormat("en-US").format(v),
   pct: formatPercent,
   // Bounces are measured only against messages accepted for delivery, never queued, skipped, or failed rows.
-  bounceRateRatio: (bounced, delivered, inFlight = 0) => ratio(bounced, bounced + delivered + inFlight),
-  bounceRate: (bounced, delivered, inFlight = 0) => formatPercent(bounced, bounced + delivered + inFlight),
-  date: (iso) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+  bounceRateRatio: (bounced: number, delivered: number, inFlight = 0) => ratio(bounced, bounced + delivered + inFlight),
+  bounceRate: (bounced: number, delivered: number, inFlight = 0) => formatPercent(bounced, bounced + delivered + inFlight),
+  date: (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
 };

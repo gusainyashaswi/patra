@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export function proxy(request) {
+export function proxy(request: NextRequest) {
   const demoRequested = request.nextUrl.searchParams.get("demo") === "1";
   const demoSession = request.cookies.get("patra-demo")?.value === "1";
   if (demoRequested || demoSession) {
