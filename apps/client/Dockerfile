@@ -1,22 +1,42 @@
-FROM node:22-alpine AS build
+FROM node:20-alpine AS builder
+
 WORKDIR /app
-COPY package.json package-lock.json ./
-COPY apps/server/package.json apps/server/package.json
-COPY apps/client/package.json apps/client/package.json
-COPY packages/shared/package.json packages/shared/package.json
-RUN npm ci --ignore-scripts
-COPY apps/client apps/client
-COPY packages/shared packages/shared
-RUN npm run build --workspace=@patra/shared
-ARG NEXT_PUBLIC_API_URL=http://localhost:5001/api
+
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# Copy lockfile and package manifests
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/client/package.json ./apps/client/
+
+# Install dependencies with frozen lockfile
+RUN npm ci
+
+# Copy sources
+COPY packages/shared ./packages/shared
+COPY apps/client ./apps/client
+
+# Build shared and client (standalone)
+RUN npm run build --workspace=@patra/shared
 RUN npm run build --workspace=client
-FROM node:22-alpine
+
+# Production stage
+FROM node:20-alpine AS runner
+
 WORKDIR /app
+
 ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/client ./apps/client
-COPY --from=build /app/packages/shared ./packages/shared
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+# Copy Next.js standalone build output and static assets
+COPY --chown=node:node --from=builder /app/apps/client/.next/standalone ./
+COPY --chown=node:node --from=builder /app/apps/client/.next/static ./apps/client/.next/static
+COPY --chown=node:node --from=builder /app/apps/client/public ./apps/client/public
+
 USER node
+
 EXPOSE 3000
-CMD ["npm", "start", "--workspace=client", "--", "--hostname", "0.0.0.0"]
+
+CMD ["node", "apps/client/server.js"]

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon, Logo } from "./icons";
 import { cx } from "./ui";
-import { api } from "@/lib/api";
+import { api, inDemoMode } from "@/lib/api";
 
 const nav = [
   { href: "/dashboard", label: "Overview" },
@@ -47,6 +47,7 @@ export default function AppShell({ children }) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [user, setUser] = useState(null);
+  const [demoMode, setDemoMode] = useState(false);
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
   // The designer needs the full viewport; it renders its own chrome.
   const bare = /^\/templates\/[^/]+$/.test(pathname);
@@ -55,7 +56,10 @@ export default function AppShell({ children }) {
   useEffect(() => {
     let active = true;
     api("/auth/me").then(({ data }) => {
-      if (active) setUser(data);
+      if (active) {
+        setUser(data);
+        setDemoMode(inDemoMode());
+      }
     }).catch(() => {});
     return () => { active = false; };
   }, []);
@@ -164,7 +168,7 @@ export default function AppShell({ children }) {
         )}
       </header>
 
-      {!bare && (
+      {demoMode && (
         <div role="status" className="border-b border-warning/30 bg-warning/10 px-5 py-2 text-center text-[13px] text-warning sm:px-10">
           <span className="font-semibold">Demo mode:</span> Dashboard, campaign, and template sample data is illustrative and does not represent live delivery activity.
         </div>
