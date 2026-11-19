@@ -7,8 +7,8 @@ let client: S3Client | undefined;
 function bucket(): string | undefined { return process.env.S3_BUCKET || env.S3_BUCKET; }
 function getClient(): S3Client {
   const endpoint = process.env.S3_ENDPOINT || env.S3_ENDPOINT;
-  const accessKeyId = process.env.S3_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY || env.S3_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.S3_SECRET_KEY || env.S3_SECRET_ACCESS_KEY;
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID || env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || env.S3_SECRET_ACCESS_KEY;
   if (!endpoint || !bucket() || !accessKeyId || !secretAccessKey) throw new ApiError(503, "Image storage is not configured");
   client ??= new S3Client({ endpoint, region: process.env.S3_REGION || env.S3_REGION, forcePathStyle: true, credentials: { accessKeyId, secretAccessKey }, maxAttempts: 2 });
   return client;

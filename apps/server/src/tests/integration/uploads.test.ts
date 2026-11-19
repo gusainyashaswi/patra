@@ -5,7 +5,7 @@ import request from "supertest";
 import { app } from "../../app.js";
 import { setupTestDb, teardownTestDb, clearTestDb, seedTestContext } from "../testHelper.js";
 
-const keys = ["S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_PUBLIC_URL"];
+const keys = ["S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_PUBLIC_URL"];
 const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
 const png = Buffer.from("89504e470d0a1a0a00000000", "hex");
 describe("Image object storage", () => {
@@ -22,7 +22,7 @@ describe("Image object storage", () => {
     });
     await new Promise<void>(resolve => storage.listen(0, "127.0.0.1", resolve));
     const base = `http://127.0.0.1:${(storage.address() as { port: number }).port}`;
-    Object.assign(process.env, { S3_ENDPOINT: base, S3_REGION: "us-east-1", S3_BUCKET: "images", S3_ACCESS_KEY: "test-key", S3_SECRET_KEY: "test-secret", S3_PUBLIC_URL: base + "/images" });
+    Object.assign(process.env, { S3_ENDPOINT: base, S3_REGION: "us-east-1", S3_BUCKET: "images", S3_ACCESS_KEY_ID: "test-key", S3_SECRET_ACCESS_KEY: "test-secret", S3_PUBLIC_URL: base + "/images" });
     try {
       const response = await request(app).post(`/api/orgs/${ctx.organization.id}/uploads`).auth(ctx.accessToken, { type: "bearer" }).set("Content-Type", "image/png").send(png);
       expect(response.status).toBe(201);

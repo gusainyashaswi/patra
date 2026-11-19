@@ -19,7 +19,9 @@ export interface ApiOptions {
 }
 
 export class ApiClientError extends Error {
-  status?: number;
+  constructor(message: string, public status?: number) {
+    super(message);
+  }
 }
 
 let refreshing: Promise<void> | undefined;
@@ -42,7 +44,11 @@ function currentDemoCampaign(campaign: typeof demoCampaigns[number]) {
     deliveredCount: campaign.counters.deliveredCount + Math.floor(progressed * 0.75),
   }, status };
 }
-const inDemoMode = () => typeof document !== "undefined" && document.cookie.includes("patra-demo=1");
+export function clearDemoSession() {
+  document.cookie = "patra-demo=; Max-Age=0; Path=/; SameSite=Lax";
+}
+
+export const inDemoMode = () => typeof document !== "undefined" && document.cookie.split("; ").includes("patra-demo=1");
 const demoOverview = (period: string) => {
   const samples = {
     "7d": { sent: 1974, delivered: 1277, bounced: 24, failed: 9, opened: 976, pending: 412, days: ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"], deliveredSeries: [112, 322, 198, 84, 604, 170, 380], bouncedSeries: [3, 6, 4, 2, 9, 3, 7], failedSeries: [1, 2, 1, 0, 3, 1, 1] },
@@ -110,14 +116,18 @@ export async function api<T>(path: string, { method = "GET", body, responseType,
     response = await request();
     if (response.status === 401 && !["/auth/login", "/auth/refresh", "/auth/register"].includes(path)) {
       refreshing ??= fetch(`${API_URL}/auth/refresh`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
-        .then(result => { if (!result.ok) throw new Error("Please sign in again."); })
+        .then(result => {
+          if (result.status === 401) throw new ApiClientError("Please sign in again.", 401);
+          if (!result.ok) throw new ApiClientError(`Could not refresh your session (${result.status}).`, result.status);
+        })
         .finally(() => { refreshing = undefined; });
       await refreshing;
       response = await request();
     }
 
-  } catch {
-    throw new Error("Can't reach the Patra API. Is the server running on port 5001?");
+  } catch (error) {
+    if (error instanceof ApiClientError) throw error;
+    throw new Error(`Could not connect to the Patra API at ${API_URL}. Check that it is running and reachable.`);
   }
   if (response.ok && responseType === "stream") return response;
   if (response.ok && responseType === "blob") return response.blob();
@@ -128,8 +138,8 @@ export async function api<T>(path: string, { method = "GET", body, responseType,
       payload.errors?.[0]?.message || payload.message ||
       (typeof payload.error === "string" ? payload.error : payload.error?.message) ||
       `Request failed (${response.status})`,
+      response.status,
     );
-    error.status = response.status;
     throw error;
   }
   return payload as ApiEnvelope<T>;

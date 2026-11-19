@@ -11,7 +11,7 @@ patra/
 │   └── server/          # Express API, worker, queue processors, and Vitest tests
 ├── packages/
 │   └── shared/          # Shared enums and TypeScript types
-├── docker-compose.yaml  # Redis and single-node MongoDB replica set, API, and worker
+├── docker-compose.yml  # Redis and single-node MongoDB replica set, API, and worker
 └── turbo.json           # Workspace task graph
 ```
 
@@ -83,8 +83,8 @@ The integration suite runs MongoDB in memory. For Redis, it first uses `TEST_RED
 
 - Configure `RESEND_WEBHOOK_SECRET` before enabling the Resend webhook endpoint.
 - Configure the `S3_*` variables before enabling image uploads.
-- The Compose file expects production secrets to be supplied through the environment; never commit `.env` files or credentials.
-- Redis and the API expose Compose health checks; API and worker containers restart automatically after failures and wait for Redis health plus replica-set initialization.
+- Run `docker compose up --build` for the local stack. Copy `.env.example` to `.env` for optional overrides.
+- The API and worker wait for Redis health, replica-set initialization, and image bucket setup.
 - To remove the obsolete sender-level transport field from an existing database, run:
 
   ```bash

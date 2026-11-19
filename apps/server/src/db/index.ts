@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { env } from "../config/env.js";
 import { DB_NAME } from "../constants.js";
 
 export function isDatabaseReady(): boolean {
@@ -7,13 +8,12 @@ export function isDatabaseReady(): boolean {
 
 export const connectDB = async (): Promise<typeof mongoose | null> => {
   try {
-    const rawUri = process.env.MONGODB_URI || process.env.MONGO_URL;
+    const rawUri = env.MONGODB_URI;
 
     if (
       !rawUri ||
       rawUri.includes("<username>") ||
       rawUri.includes("<password>") ||
-      rawUri.includes("YOUR_MONGO_URL") ||
       rawUri.includes("YOUR_MONGODB_URI")
     ) {
       console.warn("⚠️  MongoDB connection string is a placeholder or not configured.");

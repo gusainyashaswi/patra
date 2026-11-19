@@ -1,32 +1,44 @@
-# Build from the repository root. Turbo prune retains the server and its workspace dependencies.
-FROM node:22-alpine AS pruner
+FROM node:20-alpine AS builder
 
 WORKDIR /app
-COPY . .
-RUN npm ci --ignore-scripts && npx turbo prune server --docker
 
-FROM node:22-alpine AS builder
+# Copy lockfile and package manifests
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/server/package.json ./apps/server/
 
-WORKDIR /app
-COPY --from=pruner /app/out/json/ ./
+# Install all dependencies with frozen lockfile
 RUN npm ci
-COPY --from=pruner /app/out/full/ ./
-RUN npm run build --workspace @patra/shared && npm run build --workspace server
-RUN npm prune --omit=dev && mkdir -p apps/server/node_modules
 
-FROM node:22-alpine AS runner
+# Copy sources
+COPY packages/shared ./packages/shared
+COPY apps/server ./apps/server
+
+# Compile shared and server
+RUN npm run build --workspace=@patra/shared
+RUN npm run build --workspace=server
+
+# Production stage
+FROM node:20-alpine AS runner
 
 WORKDIR /app
+
 ENV NODE_ENV=production
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
-COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
-COPY --from=builder /app/apps/server/dist ./apps/server/dist
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+# Copy lockfile and package manifests for production install
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/server/package.json ./apps/server/
+
+# Install production dependencies only using workspace-aware npm ci
+RUN npm ci --omit=dev
+
+# Copy compiled outputs
+COPY --chown=node:node --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --chown=node:node --from=builder /app/apps/server/dist ./apps/server/dist
 
 USER node
+
 EXPOSE 5001
 
 CMD ["node", "apps/server/dist/index.js"]

@@ -1,9 +1,10 @@
-# Local development only: database ports are bound to loopback.
+# Local development only.
 x-api: &api
   build:
     context: .
     dockerfile: apps/server/Dockerfile
-  env_file: ${PATRA_ENV_FILE:-.env}
+  env_file:
+    - { path: "${PATRA_ENV_FILE:-.env}", required: false }
   environment: &api-env
     NODE_ENV: development
     PORT: 5001
@@ -13,11 +14,9 @@ x-api: &api
     CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     S3_ENDPOINT: http://minio:9000
     S3_REGION: us-east-1
-    S3_BUCKET: patra-images
-    S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-patra-local}
-    S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-patra-local-storage-password}
-    S3_ACCESS_KEY: ${MINIO_ROOT_USER:-patra-local}
-    S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-patra-local-storage-password}
+    S3_BUCKET: &image-bucket patra-images
+    S3_ACCESS_KEY_ID: &minio-user ${MINIO_ROOT_USER:-patra-local}
+    S3_SECRET_ACCESS_KEY: &minio-password ${MINIO_ROOT_PASSWORD:-patra-local-storage-password}
     S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000/patra-images}
   depends_on:
     mongo-init:
@@ -28,7 +27,7 @@ x-api: &api
       condition: service_completed_successfully
 services:
   mongo:
-    image: mongo:7
+    image: &mongo-image mongo:7
     command: ["--replSet", "rs0", "--bind_ip_all"]
     ports: ["127.0.0.1:27017:27017"]
     volumes: ["mongo_data:/data/db"]
@@ -37,7 +36,7 @@ services:
       interval: 5s
       retries: 20
   mongo-init:
-    image: mongo:7
+    image: *mongo-image
     depends_on:
       mongo:
         condition: service_healthy
@@ -57,6 +56,9 @@ services:
       retries: 10
   server:
     <<: *api
+    environment:
+      <<: *api-env
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
     ports: ["127.0.0.1:5001:5001"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:5001/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -67,30 +69,29 @@ services:
     command: ["node", "apps/server/dist/worker.js"]
     stop_grace_period: 30s
   minio:
-    build:
+    build: &minio-build
       context: .
       dockerfile: infra/minio.Dockerfile
       target: server
     command: server /data --console-address :9001
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-patra-local}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-patra-local-storage-password}
+    environment: &minio-credentials
+      MINIO_ROOT_USER: *minio-user
+      MINIO_ROOT_PASSWORD: *minio-password
     ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
     volumes: ["minio_data:/data"]
   storage-init:
     build:
-      context: .
-      dockerfile: infra/minio.Dockerfile
+      <<: *minio-build
       target: client
     depends_on: [minio]
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-patra-local}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-patra-local-storage-password}
+      <<: *minio-credentials
+      S3_BUCKET: *image-bucket
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >-
         until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do sleep 2; done;
-        mc mb --ignore-existing local/patra-images && mc anonymous set download local/patra-images
+        mc mb --ignore-existing "local/$$S3_BUCKET" && mc anonymous set download "local/$$S3_BUCKET"
   client:
     build:
       context: .

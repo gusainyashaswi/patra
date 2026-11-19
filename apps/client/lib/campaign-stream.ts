@@ -40,7 +40,7 @@ export function useCampaignStream(workspace, id) {
             while ((boundary = pending.indexOf("\n\n")) !== -1) {
               const event = pending.slice(0, boundary);
               pending = pending.slice(boundary + 2);
-              if (/^event: (snapshot|change)$/m.test(event) && !change) {
+              if (/^event: campaign$/m.test(event) && !change) {
                 change = setTimeout(() => { change = null; if (!stopped) setRevision(value => value + 1); }, 250);
               }
             }

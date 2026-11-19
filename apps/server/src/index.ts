@@ -5,7 +5,8 @@ import { app } from "./app.js";
 import { connectDB } from "./db/index.js";
 import { env } from "./config/env.js";
 
-const PORT = process.env.PORT || env.PORT || 5001;
+const PORT = env.PORT;
+const HOST = "0.0.0.0";
 
 async function startServer(): Promise<void> {
   const database = await connectDB();
@@ -17,8 +18,8 @@ async function startServer(): Promise<void> {
     console.warn("Starting without MongoDB; readiness checks will remain unavailable.");
   }
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Patra API server running on http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 Patra API server running on http://${HOST}:${PORT}`);
   });
 }
 
