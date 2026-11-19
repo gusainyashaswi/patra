@@ -1,0 +1,109 @@
+services:
+  mongo:
+    image: mongo:7.0
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  mongo-init:
+    image: mongo:7.0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: >
+      bash -c "
+        mongosh --host mongo:27017 --eval '
+          try {
+            rs.status();
+            console.log(\"Replica set already initialized\");
+          } catch (e) {
+            rs.initiate({
+              _id: \"rs0\",
+              members: [{ _id: 0, host: \"mongo:27017\" }]
+            });
+            console.log(\"Replica set initialized\");
+          }
+        '
+      "
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/patra?replicaSet=rs0}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:?}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?}
+      CREDENTIALS_KEY: ${CREDENTIALS_KEY:?}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    command: ["node", "apps/server/dist/worker.js"]
+    stop_grace_period: 30s
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/patra?replicaSet=rs0}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:?}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?}
+      CREDENTIALS_KEY: ${CREDENTIALS_KEY:?}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+    depends_on:
+      - api
+
+volumes:
+  mongo_data:

@@ -4,7 +4,7 @@ dotenv.config();
 import { z } from "zod";
 
 const schema = z.object({
-  PORT: z.coerce.number().default(5001),
+  PORT: z.coerce.number().default(4000),
   NODE_ENV: z.string().default("development"),
   MONGODB_URI: z.string().optional(),
   MONGO_URL: z.string().optional(),
@@ -24,7 +24,12 @@ const schema = z.object({
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
 });
 
-const parsed = schema.parse(process.env);
+const result = schema.safeParse(process.env);
+if (!result.success) {
+  console.error("❌ Environment variable validation failed:", JSON.stringify(result.error.format(), null, 2));
+  process.exit(1);
+}
+const parsed = result.data;
 
 const defaultCredentialsKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const defaultAccessSecret = "patra_jwt_access_secret_super_secure_key_123456789";
