@@ -110,6 +110,16 @@ function joinSuppression(organizationId: Types.ObjectId): PipelineStage.Lookup {
   };
 }
 
+contactRouter.get("/fields", asyncHandler(async (req, res) => {
+  const rows = await Contact.aggregate<{ _id: string }>([
+    { $match: { organizationId: new Types.ObjectId(req.user!.organizationId!) } },
+    { $project: { fields: { $objectToArray: { $cond: [{ $eq: [{ $type: "$customFields" }, "object"] }, "$customFields", {}] } } } },
+    { $unwind: "$fields" }, { $group: { _id: "$fields.k" } }, { $sort: { _id: 1 } }, { $limit: 200 },
+  ]);
+  const fields = rows.map(row => row._id).filter(key => /^\w{1,64}$/.test(key) && !["__proto__", "prototype", "constructor", "name", "email"].includes(key));
+  res.json({ data: fields });
+}));
+
 contactRouter.get("/", asyncHandler(async (req, res) => {
   const { q, view, page, listId } = contactQuery.parse(req.query);
   const organizationId = new Types.ObjectId(req.user!.organizationId!);

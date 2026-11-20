@@ -49,10 +49,13 @@ export function compileTemplate(draft: Draft, sample = false) {
     if (block.type === "image") texts.push(block.alt);
   }
   const variables = extractTemplateVariables(texts);
+  if (variables.some(key => key.length > 64 || ["__proto__", "prototype", "constructor"].includes(key))) {
+    throw new ApiError(400, "Merge field names must be at most 64 characters and cannot use reserved names.");
+  }
   if (!sample && (!draft.name.trim() || !draft.subject.trim() || !draft.blocks.length)) {
     throw new ApiError(400, "Add a template name, subject, and at least one block.");
   }
-  const fill = (value: string) => sample ? value.replace(tokens, (match, key) => Object.hasOwn(samples, key) ? samples[key] : match) : value;
+  const fill = (value: string) => sample ? value.replace(tokens, (_match, key) => Object.hasOwn(samples, key) ? samples[key] : `[Sample ${key}]`) : value;
   const safe = (value: string) => escape(fill(value));
   const plain: string[] = [];
   const rows = draft.blocks.map((block) => {

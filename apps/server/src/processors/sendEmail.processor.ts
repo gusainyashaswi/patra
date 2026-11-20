@@ -8,6 +8,7 @@ import { reserveQuota, nextUtcDay } from "../services/quota.service.js";
 import { MailTransport } from "../models/mailTransport.model.js";
 import { Contact, Suppression } from "../models/audience.model.js";
 import { renderEmail } from "../services/render.service.js";
+import { contactMergeData } from "../services/contact-merge.js";
 import {
   getOrBuildTransport,
   TransientError,
@@ -131,19 +132,9 @@ export async function sendEmailProcessor(
   const transportId = domain.transportId.toString();
 
   // 7. Prepare contact data for variable replacement
-  let customFields: Record<string, unknown> = {};
-  if (contact?.customFields) {
-    customFields =
-      contact.customFields instanceof Map
-        ? Object.fromEntries(contact.customFields)
-        : (contact.customFields as Record<string, unknown>);
-  }
-
-  const contactData: Record<string, unknown> = recipient.mergeData ?? {
-    name: contact?.name || "",
-    email: recipient.email,
-    ...customFields,
-  };
+  const contactData = recipient.mergeData ?? contactMergeData({
+    name: contact?.name, email: recipient.email, customFields: contact?.customFields,
+  });
 
   // 8. Render email
   const renderResult = renderEmail({

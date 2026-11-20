@@ -1,0 +1,67 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import request from "supertest";
+import { randomUUID } from "node:crypto";
+import { app } from "../../app.js";
+import { setupTestDb, teardownTestDb, clearTestDb, seedTestContext } from "../testHelper.js";
+import { Contact, Suppression } from "../../models/audience.model.js";
+import { Campaign, CampaignRecipient } from "../../models/campaign.model.js";
+import { createSendWorker } from "../../worker.js";
+import { fakeTransport } from "../../transports/index.js";
+
+describe("CSV to personalized campaign", () => {
+  beforeAll(setupTestDb);
+  afterAll(teardownTestDb);
+  beforeEach(clearTestDb);
+  it("keeps estimate and dispatch consistent, skips missing/suppressed rows, and snapshots custom values", async () => {
+    const ctx = await seedTestContext();
+    const base = `/api/orgs/${ctx.organization.id}`;
+    const auth = (req: request.Test) => req.auth(ctx.accessToken, { type: "bearer" });
+    const csv = Buffer.from('email,name,department\nflow@example.test,Alice & Bob,R&D <Lab>\nmissing@example.test,Missing,\nblocked@example.test,Blocked,Design\n');
+    const preview = await auth(request(app).post(base + "/contacts/import/preview?filename=people.csv")).set("Content-Type", "application/octet-stream").send(csv);
+    expect(preview.body.data.counts.valid).toBe(3);
+    expect(await Contact.countDocuments({ organizationId: ctx.organization.id })).toBe(3);
+    const imported = await auth(request(app).post(base + `/contacts/import?filename=people.csv&listName=Custom&requestId=${randomUUID()}`)).set("Content-Type", "application/octet-stream").send(csv);
+    expect(imported.status).toBe(201);
+    await Contact.updateOne({ organizationId: ctx.organization.id, email: "missing@example.test" }, { $set: { "customFields.department": "   " } });
+    await Suppression.create({ organizationId: ctx.organization.id, email: "blocked@example.test", reason: "UNSUBSCRIBED" });
+    const fields = await auth(request(app).get(base + "/contacts/fields"));
+    expect(fields.body.data).toContain("department");
+    const draft = { name: "Department update", subject: "Hello {{name}}", previewText: "{{department}} update", page: { bg: "#ffffff", text: "#292524", width: 600, align: "left" }, blocks: [{ id: "body", type: "text", text: "Welcome {{name}} to {{department}}", size: 16, weight: 400 }] };
+    const template = await auth(request(app).post(base + "/templates")).send(draft);
+    const published = await auth(request(app).post(base + `/templates/${template.body.data.id}/publish`)).send({ revision: template.body.data.revision });
+    expect(published.status).toBe(201);
+    const input = { name: "Department campaign", templateVersionId: published.body.data.id, senderIdentityId: ctx.sender.id, listId: imported.body.data.list.id };
+    const estimate = await auth(request(app).post(base + "/campaigns/estimate")).send(input);
+    expect(estimate.body.data).toEqual({ total: 3, suppressed: 1, missing: 1, eligible: 1 });
+    const campaign = await auth(request(app).post(base + "/campaigns")).send(input);
+    expect(campaign.status).toBe(201);
+    const path = base + `/campaigns/${campaign.body.data.id}`;
+    expect((await auth(request(app).post(path + "/send"))).status).toBe(202);
+    await Contact.updateOne({ organizationId: ctx.organization.id, email: "flow@example.test" }, { $set: { "customFields.department": "Changed after queueing" } });
+    createSendWorker(ctx.transport.id, 10);
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline && (await Campaign.findById(campaign.body.data.id))?.status !== "COMPLETED") await new Promise(resolve => setTimeout(resolve, 100));
+    expect((await Campaign.findById(campaign.body.data.id))?.status).toBe("COMPLETED");
+    expect(await CampaignRecipient.countDocuments({ campaignId: campaign.body.data.id, status: "SENT" })).toBe(estimate.body.data.eligible);
+    expect(await CampaignRecipient.countDocuments({ campaignId: campaign.body.data.id, status: "SKIPPED" })).toBe(1);
+    expect(await CampaignRecipient.countDocuments({ campaignId: campaign.body.data.id, email: "blocked@example.test" })).toBe(0);
+    expect(fakeTransport.allSends).toHaveLength(1);
+    expect(fakeTransport.allSends[0].html).toContain("Alice &amp; Bob to R&amp;D &lt;Lab&gt;");
+    expect(fakeTransport.allSends[0].text).toContain("R&D <Lab>");
+    expect(fakeTransport.allSends[0].html).toContain("Unsubscribe");
+    expect((await auth(request(app).post(path + "/send"))).status).toBe(409);
+    const exported = await auth(request(app).get(path + "/recipients/export?status=SENT"));
+    expect(exported.text).toContain("flow@example.test");
+    expect(exported.text).not.toContain("missing@example.test");
+  });
+
+  it("only exposes merge field names from the authorized organization", async () => {
+    const ctx = await seedTestContext();
+    const other = await seedTestContext();
+    await Contact.create({ organizationId: other.organization.id, email: "private@example.test", customFields: { confidential_field: "private" } });
+    const response = await request(app).get(`/api/orgs/${ctx.organization.id}/contacts/fields`).auth(ctx.accessToken, { type: "bearer" });
+    expect(response.status).toBe(200);
+    expect(response.body.data).not.toContain("confidential_field");
+    expect((await request(app).get(`/api/orgs/${other.organization.id}/contacts/fields`).auth(ctx.accessToken, { type: "bearer" })).status).toBe(404);
+  });
+});

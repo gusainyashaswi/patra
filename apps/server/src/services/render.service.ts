@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
+import { missingMergeFields } from "./contact-merge.js";
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -92,13 +93,7 @@ export function renderEmail(params: RenderParams): RenderResult {
   const { subject, html, text, variables, data, organizationId, email } = params;
 
   // Check required variables
-  const missing: string[] = [];
-  for (const v of variables) {
-    const val = data[v];
-    if (val === undefined || val === null || val === "") {
-      missing.push(v);
-    }
-  }
+  const missing = missingMergeFields(variables, data);
 
   if (missing.length > 0) {
     return {

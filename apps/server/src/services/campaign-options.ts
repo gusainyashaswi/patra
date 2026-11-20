@@ -2,6 +2,7 @@ import { TemplateVersion } from "../models/template.model.js";
 import { SenderIdentity, Domain, MailTransport } from "../models/mailTransport.model.js";
 import { List, Contact, Suppression } from "../models/audience.model.js";
 import { ApiError } from "../utils/apiError.js";
+import { contactMergeData, missingMergeFields } from "./contact-merge.js";
 
 export async function validateCampaignLinks(organizationId: string, input: { templateVersionId: string; senderIdentityId: string; listId: string }) {
   const [version, sender, list] = await Promise.all([
@@ -26,8 +27,7 @@ export async function estimateCampaign(organizationId: string, input: { template
   let missing = 0;
   for (const contact of contacts) {
     if (blocked.has(contact.email)) { suppressed++; continue; }
-    const data: Record<string, string> = { ...contact.customFields, name: contact.name ?? "", email: contact.email };
-    if (version.variables.some(key => !data[key]?.trim())) missing++;
+    if (missingMergeFields(version.variables, contactMergeData(contact)).length) missing++;
   }
   return { total: contacts.length, suppressed, missing, eligible: contacts.length - suppressed - missing };
 }

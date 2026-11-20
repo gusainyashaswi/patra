@@ -9,6 +9,7 @@ import { ApiError } from "../utils/apiError.js";
 import { completeCampaignIfFinished } from "./campaignLifecycle.service.js";
 import { DispatchOutboxEvent } from "../models/infra.model.js";
 import { dispatchOutboxEvent, newDispatchOutboxEvent } from "./dispatchOutbox.service.js";
+import { contactMergeData, missingMergeFields } from "./contact-merge.js";
 
 export async function startSend(
   organizationId: string,
@@ -70,24 +71,8 @@ export async function startSend(
   // 5. Prepare recipient documents
   const requiredVariables = templateVersion.variables || [];
   const recipientDocs = activeContacts.map((c) => {
-    let customFields: Record<string, unknown> = {};
-    if (c.customFields) {
-      customFields =
-        c.customFields instanceof Map
-          ? Object.fromEntries(c.customFields)
-          : (c.customFields as Record<string, unknown>);
-    }
-
-    const contactData: Record<string, unknown> = {
-      name: c.name || "",
-      email: c.email,
-      ...customFields,
-    };
-
-    const missingVariables = requiredVariables.filter((v) => {
-      const val = contactData[v];
-      return val === undefined || val === null || val === "";
-    });
+    const contactData = contactMergeData(c);
+    const missingVariables = missingMergeFields(requiredVariables, contactData);
 
     return {
       organizationId: orgOid,
