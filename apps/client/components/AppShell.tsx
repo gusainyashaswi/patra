@@ -16,11 +16,16 @@ const nav = [
 ];
 
 // The theme lives on <html data-theme>, set before paint by the root layout script.
-const themeListeners = new Set();
+const themeListeners = new Set<() => void>();
 const themeStore = {
-  subscribe: (fn) => (themeListeners.add(fn), () => themeListeners.delete(fn)),
+  subscribe: (fn: () => void) => {
+    themeListeners.add(fn);
+    return () => {
+      themeListeners.delete(fn);
+    };
+  },
   get: () => document.documentElement.dataset.theme || "light",
-  set: (t) => {
+  set: (t: string) => {
     document.documentElement.dataset.theme = t;
     localStorage.setItem("patra-theme", t);
     themeListeners.forEach((fn) => fn());
@@ -34,21 +39,21 @@ function ThemeToggle() {
     <button
       onClick={() => themeStore.set(next)}
       aria-label={`Switch to ${next} theme`}
-      className="grid h-10 w-10 place-items-center text-on-nav/70 hover:bg-white/10 hover:text-on-nav cursor-pointer transition-colors"
+      className="grid h-10 w-10 place-items-center text-on-nav/75 hover:bg-fg/10 hover:text-on-nav cursor-pointer transition-colors"
     >
       {theme === "dark" ? <Icon.Sun size={18} /> : <Icon.Moon size={18} />}
     </button>
   );
 }
 
-export default function AppShell({ children }) {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<{ name?: string } | null>(null);
   const [demoMode, setDemoMode] = useState(false);
-  const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   // The designer needs the full viewport; it renders its own chrome.
   const bare = /^\/templates\/[^/]+$/.test(pathname);
   // The overview is a single-screen dashboard on desktop: lock it to the viewport.
@@ -81,7 +86,7 @@ export default function AppShell({ children }) {
   if (bare) return <>{children}</>;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-bg text-fg">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:bg-accent focus:px-4 focus:py-2 focus:text-on-accent"
@@ -89,10 +94,11 @@ export default function AppShell({ children }) {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-40 bg-nav text-on-nav">
+      <header className="sticky top-0 z-40 border-b border-line bg-nav text-on-nav">
         <div className="mx-auto flex h-[72px] max-w-[1440px] items-center gap-6 px-5 sm:px-10 xl:gap-10">
-          <Link href="/dashboard" aria-label="Patra home" className="shrink-0 cursor-pointer">
+          <Link href="/dashboard" aria-label="Patra home" className="flex items-center gap-3 shrink-0 cursor-pointer">
             <Logo size={28} />
+            <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 border border-line text-on-nav/70 hidden sm:inline-block">v0.1</span>
           </Link>
 
           <nav aria-label="Main" className="hidden items-center gap-6 lg:flex xl:gap-8">
@@ -103,7 +109,7 @@ export default function AppShell({ children }) {
                 aria-current={isActive(n.href) ? "page" : undefined}
                 className={cx(
                   "relative py-2 font-mono text-[13px] font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors",
-                  isActive(n.href) ? "text-on-nav" : "text-on-nav/55 hover:text-on-nav",
+                  isActive(n.href) ? "text-on-nav" : "text-on-nav/60 hover:text-on-nav",
                 )}
               >
                 {n.label}
@@ -120,13 +126,13 @@ export default function AppShell({ children }) {
               disabled={loggingOut}
               aria-label={`Log out ${user?.name || "account"}`}
               title="Log out"
-              className="hidden h-10 items-center gap-2.5 whitespace-nowrap px-3 font-mono xl:inline-flex text-[12px] font-bold uppercase tracking-[0.12em] text-on-nav/70 hover:bg-white/10 hover:text-on-nav cursor-pointer transition-colors"
+              className="hidden h-10 items-center gap-2.5 whitespace-nowrap px-3 font-mono xl:inline-flex text-[12px] font-bold uppercase tracking-[0.12em] text-on-nav/75 hover:bg-fg/10 hover:text-on-nav cursor-pointer transition-colors"
             >
               {loggingOut ? "Logging out…" : firstName} <Icon.LogOut size={15} />
             </button>
             <Link
               href="/campaigns/new"
-              className="hidden h-11 items-center gap-2 whitespace-nowrap bg-accent px-5 font-mono text-[13px] font-bold uppercase tracking-[0.1em] text-on-accent hover:bg-accent-hover sm:inline-flex cursor-pointer transition-colors"
+              className="hidden h-11 items-center gap-2 whitespace-nowrap bg-accent px-5 font-mono text-[13px] font-bold uppercase tracking-[0.1em] text-on-accent hover:bg-accent-hover sm:inline-flex cursor-pointer transition-colors border border-accent"
             >
               <Icon.Plus size={15} /> New campaign
             </Link>
@@ -134,7 +140,7 @@ export default function AppShell({ children }) {
               onClick={() => setOpen((o) => !o)}
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
-              className="grid h-11 w-11 place-items-center hover:bg-white/10 lg:hidden cursor-pointer"
+              className="grid h-11 w-11 place-items-center hover:bg-fg/10 lg:hidden cursor-pointer text-on-nav"
             >
               {open ? <Icon.X size={20} /> : <Icon.Menu size={20} />}
             </button>
@@ -142,7 +148,7 @@ export default function AppShell({ children }) {
         </div>
 
         {open && (
-          <nav aria-label="Mobile" className="border-t border-white/10 px-5 pb-6 pt-2 lg:hidden animate-fade-up">
+          <nav aria-label="Mobile" className="border-t border-line bg-nav px-5 pb-6 pt-2 lg:hidden animate-fade-up">
             {nav.map((n) => (
               <Link
                 key={n.href}
@@ -150,8 +156,8 @@ export default function AppShell({ children }) {
                 onClick={() => setOpen(false)}
                 aria-current={isActive(n.href) ? "page" : undefined}
                 className={cx(
-                  "flex h-14 items-center justify-between border-b border-white/10 font-mono text-[15px] font-bold uppercase tracking-[0.12em] cursor-pointer",
-                  isActive(n.href) ? "text-accent" : "text-on-nav/80",
+                  "flex h-14 items-center justify-between border-b border-line font-mono text-[15px] font-bold uppercase tracking-[0.12em] cursor-pointer",
+                  isActive(n.href) ? "text-accent" : "text-on-nav/75",
                 )}
               >
                 {n.label} <Icon.ArrowRight size={16} />
@@ -160,7 +166,7 @@ export default function AppShell({ children }) {
             <Link
               href="/campaigns/new"
               onClick={() => setOpen(false)}
-              className="mt-5 flex h-13 items-center justify-center gap-2 bg-accent font-mono text-[14px] font-bold uppercase tracking-[0.1em] text-on-accent cursor-pointer"
+              className="mt-5 flex h-13 items-center justify-center gap-2 bg-accent font-mono text-[14px] font-bold uppercase tracking-[0.1em] text-on-accent cursor-pointer border border-accent"
             >
               <Icon.Plus size={16} /> New campaign
             </Link>
