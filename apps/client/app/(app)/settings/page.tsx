@@ -126,9 +126,29 @@ function Transports({ items, create, toast, runAction }) {
         </div>
         <TransportForm create={create} toast={toast} />
       </div>
-      {feedback && <p className="my-4" role={feedback.error ? "alert" : "status"}>{feedback.message}</p>}
+
+      <div className="my-5 border border-line bg-surface-2/40 p-4 text-[13px] text-muted">
+        <p className="flex items-start gap-2">
+          <Icon.Info size={15} className="mt-0.5 shrink-0 text-accent-ink" />
+          <span>
+            <strong className="text-fg">Setup workflow:</strong> 1. Add your Resend API Key & rate limit → 2. Click <em>Test connection</em> to verify credentials → 3. Click <em>Sync domains</em> → 4. Proceed to <em>Senders</em> tab.
+          </span>
+        </p>
+      </div>
+
+      {feedback && (
+        <div
+          className={cx(
+            "my-4 border p-3.5 text-[14px]",
+            feedback.error ? "border-danger/40 bg-danger-soft/20 text-danger" : "border-success/40 bg-success-soft/20 text-success",
+          )}
+          role={feedback.error ? "alert" : "status"}
+        >
+          {feedback.message}
+        </div>
+      )}
       <div className="divide-y divide-line">
-        {!items.length && <p className="py-6 text-muted">No transports yet.</p>}
+        {!items.length && <p className="py-6 text-muted">No transports configured yet. Add a Resend transport above.</p>}
         {items.map((t) => (
           <Row key={t.id ?? t._id} icon={<Icon.Server size={17} />} title={t.name}
             right={t.type === "RESEND" && (
@@ -141,7 +161,7 @@ function Transports({ items, create, toast, runAction }) {
                   onClick={() => act(t.id ?? t._id, "domains/sync")}>Sync domains</Button>
               </div>
             )}
-            meta={`${providerMeta[t.type] ?? t.type} · ${t.ratePerSecond}/s${t.dailyLimit ? `, ${fmt.n(t.dailyLimit)}/day` : ""}`}>
+            meta={`${providerMeta[t.type] ?? t.type} · ${t.ratePerSecond} emails/sec${t.dailyLimit ? `, max ${fmt.n(t.dailyLimit)}/day` : ""}${t.lastTestedAt ? ` · Last tested ${fmt.date(t.lastTestedAt)}` : " · Not tested yet"}`}>
             <StatusBadge status={t.status} />
             {t.isDefault && <Badge>Default</Badge>}
           </Row>
@@ -218,11 +238,29 @@ function Senders({ items, domains, create, toast }) {
             <h2 className="display text-[28px]">Sender identities</h2>
             <p className="mt-2 max-w-xl text-[16px] text-muted">The name and address recipients see. Only verified domains are allowed.</p>
           </div>
-          <Button size="sm" disabled={!verified.length} onClick={() => { setErr({}); setOpen(true); }}><Icon.Plus size={14} /> Add</Button>
+          <Button size="sm" disabled={!verified.length} onClick={() => { setErr({}); setOpen(true); }}><Icon.Plus size={14} /> Add sender</Button>
         </div>
+
+        <div className="my-5 border border-line bg-surface-2/40 p-4 text-[13px] text-muted">
+          <p className="flex items-start gap-2">
+            <Icon.Info size={15} className="mt-0.5 shrink-0 text-accent-ink" />
+            <span>
+              <strong className="text-fg">Inbox deliverability:</strong> Sender identities link your verified domain to outgoing campaigns. The &quot;Reply-to&quot; address can direct responses to your primary support or sales inbox.
+            </span>
+          </p>
+        </div>
+
         <div className="divide-y divide-line">
-          {!verified.length && <p className="py-6 text-muted">Register a verified domain before adding a sender.</p>}
-          {verified.length > 0 && !items.length && <p className="py-6 text-muted">No sender identities yet.</p>}
+          {!verified.length && (
+            <div className="p-6 border border-warning/40 bg-warning-soft/20 text-[14px]">
+              <p className="font-semibold text-warning">No verified domains detected</p>
+              <p className="mt-1 text-muted">You must sync at least one verified domain from your Resend transport before creating a sender identity.</p>
+              <Link href="/settings?tab=transports" className="mt-2 inline-flex items-center gap-1 font-mono text-[12px] font-bold uppercase text-accent-ink hover:underline">
+                Go to Transports to sync domains →
+              </Link>
+            </div>
+          )}
+          {verified.length > 0 && !items.length && <p className="py-6 text-muted">No sender identities yet. Click &quot;Add sender&quot; above to configure your first from-address.</p>}
           {items.map((s) => (
             <Row
               key={s.id}

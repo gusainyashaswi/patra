@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EmailPaper } from "@/components/EmailRender";
 import { Icon } from "@/components/icons";
-import { Card, EmptyState, PageHeader, SearchInput, Segmented, StatusBadge, fmt } from "@/components/ui";
+import { Button, Card, EmptyState, PageHeader, SearchInput, Segmented, StatusBadge, fmt } from "@/components/ui";
 import { ensureStarterDrafts, readDrafts, subscribeDrafts } from "@/lib/template-drafts";
 import { templateRequest, useTemplateWorkspace } from "@/lib/template-api";
 import { templates } from "@/lib/mock";
@@ -71,7 +71,24 @@ export default function TemplatesPage() {
 
       {orderedRows.length === 0 ? (
         <Card>
-          <EmptyState icon={<Icon.Layout size={18} />} title={view === "published" ? "No published templates yet" : "No templates found"} description={view === "published" ? "Open a draft and publish a version to make it available for campaigns." : "Try a different name."} />
+          <EmptyState
+            icon={<Icon.Layout size={18} />}
+            title={view === "published" ? "No published templates yet" : "No templates found"}
+            description={
+              view === "published"
+                ? "Open an existing draft and publish a version to make it selectable for campaigns."
+                : q
+                ? `No templates match "${q}". Check spelling or clear your search.`
+                : "Create your first email template to get started."
+            }
+            action={
+              view === "published" ? (
+                <Button variant="secondary" onClick={() => setView("all")}>View all template drafts</Button>
+              ) : q ? (
+                <Button variant="secondary" onClick={() => setQ("")}>Clear search</Button>
+              ) : undefined
+            }
+          />
         </Card>
       ) : (
         <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">

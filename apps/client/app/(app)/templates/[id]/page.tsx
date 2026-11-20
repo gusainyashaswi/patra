@@ -95,17 +95,31 @@ function ColorField({ label, value, onChange, id }) {
   );
 }
 
-function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, variableOptions = variables }) {
+function Properties({
+  block,
+  page,
+  onBlock,
+  onPage,
+  insertVar,
+  textRef,
+  upload,
+  variableOptions = variables,
+  onMove,
+  onDuplicate,
+  onRemove,
+  isFirst = false,
+  isLast = false,
+}) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   if (!block) {
     return (
       <>
-        <PanelSection title="Page">
+        <PanelSection title="Page layout">
           <div className="flex flex-col gap-4">
-            <ColorField id="pg-bg" label="Background" value={page.bg} onChange={(v) => onPage({ bg: v })} />
-            <ColorField id="pg-text" label="Text color" value={page.text} onChange={(v) => onPage({ text: v })} />
-            <Field label="Body width" htmlFor="pg-w" hint="600px is safest across email clients.">
+            <ColorField id="pg-bg" label="Background color" value={page.bg} onChange={(v) => onPage({ bg: v })} />
+            <ColorField id="pg-text" label="Body text color" value={page.text} onChange={(v) => onPage({ text: v })} />
+            <Field label="Body max-width" htmlFor="pg-w" hint="600px is the industry standard for universal email client compatibility.">
               <div className="flex items-center gap-3">
                 <input
                   id="pg-w"
@@ -115,9 +129,9 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, 
                   step={20}
                   value={page.width}
                   onChange={(e) => onPage({ width: +e.target.value })}
-                  className="flex-1 accent-[var(--accent)] cursor-pointer"
+                  className="flex-1 accent-accent cursor-pointer"
                 />
-                <span className="tabular w-12 text-right text-[14px] text-muted">{page.width}px</span>
+                <span className="tabular w-12 text-right text-[14px] font-mono text-muted">{page.width}px</span>
               </div>
             </Field>
             <Field label="Default alignment">
@@ -125,10 +139,10 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, 
             </Field>
           </div>
         </PanelSection>
-        <div className="px-4 py-4 text-[14px] text-subtle">
+        <div className="px-4 py-4 text-[13px] text-subtle">
           <p className="flex items-start gap-2">
-            <Icon.Info size={14} className="mt-0.5 shrink-0" />
-            Select a block on the canvas to edit it. Publishing generates a plain-text version.
+            <Icon.Info size={14} className="mt-0.5 shrink-0 text-accent-ink" />
+            Select any block on the canvas to edit its properties, reorder its position, or duplicate it.
           </p>
         </div>
       </>
@@ -137,39 +151,92 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, 
 
   const set = (patch) => onBlock(block.id, patch);
   return (
-    <PanelSection title={`${block.type[0].toUpperCase()}${block.type.slice(1)} block`}>
+    <PanelSection
+      title={`${block.type[0].toUpperCase()}${block.type.slice(1)} block`}
+      action={
+        <span className="font-mono text-[11px] font-bold uppercase text-subtle">
+          Selected
+        </span>
+      }
+    >
       <div className="flex flex-col gap-4">
+        {/* Quick Block Reordering & Management Actions */}
+        <div className="flex flex-wrap items-center gap-1.5 rounded border border-line bg-surface-2/40 p-1.5">
+          <button
+            type="button"
+            onClick={() => onMove?.(block.id, -1)}
+            disabled={isFirst}
+            title="Move block up (⌘↑)"
+            aria-label="Move block up"
+            className="inline-flex h-7 items-center gap-1 border border-line bg-surface px-2 font-mono text-[11px] font-bold uppercase text-muted hover:text-fg hover:border-line-strong disabled:pointer-events-none disabled:opacity-30 cursor-pointer"
+          >
+            <Icon.ArrowUp size={12} /> Up
+          </button>
+          <button
+            type="button"
+            onClick={() => onMove?.(block.id, 1)}
+            disabled={isLast}
+            title="Move block down (⌘↓)"
+            aria-label="Move block down"
+            className="inline-flex h-7 items-center gap-1 border border-line bg-surface px-2 font-mono text-[11px] font-bold uppercase text-muted hover:text-fg hover:border-line-strong disabled:pointer-events-none disabled:opacity-30 cursor-pointer"
+          >
+            <Icon.ArrowDown size={12} /> Down
+          </button>
+          <button
+            type="button"
+            onClick={() => onDuplicate?.(block.id)}
+            title="Duplicate block"
+            aria-label="Duplicate block"
+            className="inline-flex h-7 items-center gap-1 border border-line bg-surface px-2 font-mono text-[11px] font-bold uppercase text-muted hover:text-fg hover:border-line-strong cursor-pointer"
+          >
+            <Icon.Copy size={12} /> Copy
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove?.(block.id)}
+            title="Delete block (Delete)"
+            aria-label="Delete block"
+            className="inline-flex h-7 items-center gap-1 border border-danger/30 bg-surface px-2 font-mono text-[11px] font-bold uppercase text-danger hover:bg-danger-soft/30 cursor-pointer ml-auto"
+          >
+            <Icon.Trash size={12} /> Delete
+          </button>
+        </div>
+
         {block.type === "text" && (
           <>
-            <Field label="Text" htmlFor="bk-text" hint="Type {{ or use the variable list to personalise.">
+            <Field label="Text Content" htmlFor="bk-text" hint="Type {{ or click below to insert personalized recipient tags.">
               <Textarea id="bk-text" ref={textRef} value={block.text} onChange={(e) => set({ text: e.target.value })} rows={5} />
             </Field>
-            <div className="flex flex-wrap gap-1.5">
-              {variableOptions.map((v) => (
-                <button
-                  key={v.key}
-                  onClick={() => insertVar(v.key)}
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-line px-2 font-mono text-[13px] text-muted hover:border-accent hover:text-accent-ink cursor-pointer transition-colors"
-                >
-                  <Icon.Plus size={11} />
-                  {v.key}
-                </button>
-              ))}
+            <div>
+              <p className="mb-1.5 font-mono text-[11px] font-bold uppercase text-subtle">Insert variable</p>
+              <div className="flex flex-wrap gap-1.5">
+                {variableOptions.map((v) => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    onClick={() => insertVar(v.key)}
+                    className="inline-flex h-7 items-center gap-1 rounded border border-line bg-surface px-2 font-mono text-[12px] text-muted hover:border-accent hover:text-accent-ink cursor-pointer transition-colors"
+                  >
+                    <Icon.Plus size={11} />
+                    {v.key}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Size" htmlFor="bk-size">
+              <Field label="Font Size" htmlFor="bk-size">
                 <Select id="bk-size" value={block.size} onChange={(e) => set({ size: +e.target.value })}>
-                  {[...new Set([13, 15, 16, 17, 20, 22, 28, 30, block.size])].sort((a, b) => a - b).map((s) => (
+                  {[...new Set([13, 14, 15, 16, 17, 18, 20, 22, 24, 28, 30, 32, block.size])].sort((a, b) => a - b).map((s) => (
                     <option key={s} value={s}>{s}px</option>
                   ))}
                 </Select>
               </Field>
               <Field label="Weight" htmlFor="bk-weight">
                 <Select id="bk-weight" value={block.weight} onChange={(e) => set({ weight: +e.target.value })}>
-                  <option value={400}>Regular</option>
-                  <option value={500}>Medium</option>
-                  <option value={600}>Semibold</option>
-                  <option value={700}>Bold</option>
+                  <option value={400}>Regular (400)</option>
+                  <option value={500}>Medium (500)</option>
+                  <option value={600}>Semibold (600)</option>
+                  <option value={700}>Bold (700)</option>
                 </Select>
               </Field>
             </div>
@@ -178,19 +245,35 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, 
         )}
         {block.type === "button" && (
           <>
-            <Field label="Label" htmlFor="bk-label"><Input id="bk-label" value={block.label} onChange={(e) => set({ label: e.target.value })} /></Field>
-            <Field label="Link" htmlFor="bk-href" error={!isPublicHttpUrl(block.href) ? "Enter a full HTTP or HTTPS URL, like https://example.com" : null}>
-              <Input id="bk-href" type="url" value={block.href} onChange={(e) => set({ href: e.target.value })} invalid={!isPublicHttpUrl(block.href)} />
+            <Field label="Button Label" htmlFor="bk-label"><Input id="bk-label" value={block.label} onChange={(e) => set({ label: e.target.value })} /></Field>
+            <Field
+              label="Destination URL"
+              htmlFor="bk-href"
+              hint="Must be a valid HTTP or HTTPS web address."
+              error={!isPublicHttpUrl(block.href) ? "Enter a complete HTTP or HTTPS URL (e.g. https://example.com) before publishing" : null}
+            >
+              <Input
+                id="bk-href"
+                type="url"
+                placeholder="https://example.com/register"
+                value={block.href}
+                onChange={(e) => set({ href: e.target.value })}
+                invalid={!isPublicHttpUrl(block.href)}
+              />
             </Field>
-            <ColorField id="bk-color" label="Button color" value={block.color ?? "#1c1917"} onChange={(v) => set({ color: v })} />
+            <ColorField id="bk-color" label="Button color" value={block.color ?? "#0755B5"} onChange={(v) => set({ color: v })} />
             <Field label="Alignment"><AlignPicker value={block.align} onChange={(v) => set({ align: v })} /></Field>
           </>
         )}
         {block.type === "image" && (
           <>
             {upload ? (
-              <Field label="Upload image" htmlFor="bk-image" hint="PNG or JPEG, up to 2 MB" error={uploadError}>
-                <Input id="bk-image" type="file" accept="image/png,image/jpeg" disabled={uploading}
+              <Field label="Upload Image File" htmlFor="bk-image" hint="PNG or JPEG, up to 2 MB" error={uploadError}>
+                <Input
+                  id="bk-image"
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  disabled={uploading}
                   onChange={async (event) => {
                     const input = event.currentTarget;
                     const file = input.files?.[0];
@@ -200,34 +283,48 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, 
                     try { set({ src: await upload(file) }); }
                     catch (error) { setUploadError(error.message); }
                     finally { setUploading(false); input.value = ""; }
-                  }} />
-                {uploading && <p role="status">Uploading image…</p>}
+                  }}
+                />
+                {uploading && <p role="status" className="text-[13px] text-muted">Uploading image to secure storage…</p>}
               </Field>
-            ) : <p className="text-sm text-muted">Save to a workspace to upload images.</p>}
-            <Field label="Image URL" htmlFor="bk-src" hint="Use a public HTTP or HTTPS image URL, or upload an image above."
-              error={!isPublicHttpUrl(block.src) ? "Add a public HTTP or HTTPS image URL before publishing." : null}>
-              <Input id="bk-src" type="url" placeholder="https://example.com/image.png" value={block.src} onChange={(e) => set({ src: e.target.value })} invalid={!isPublicHttpUrl(block.src)} />
+            ) : <p className="text-sm text-muted">Save template to a workspace to upload images directly.</p>}
+            <Field
+              label="Image Web URL"
+              htmlFor="bk-src"
+              hint="Public HTTP or HTTPS URL, or upload via file input above."
+              error={!isPublicHttpUrl(block.src) ? "Add a valid public HTTP or HTTPS image URL before publishing" : null}
+            >
+              <Input
+                id="bk-src"
+                type="url"
+                placeholder="https://example.com/banner.png"
+                value={block.src}
+                onChange={(e) => set({ src: e.target.value })}
+                invalid={!isPublicHttpUrl(block.src)}
+              />
             </Field>
-            <Field label="Alt text" htmlFor="bk-alt" hint="Shown when images are blocked, and read by screen readers.">
-              <Input id="bk-alt" value={block.alt} onChange={(e) => set({ alt: e.target.value })} />
+            <Field label="Alt Text (Screen Readers & Blocked Images)" htmlFor="bk-alt" hint="Crucial for accessibility and recipients with images disabled.">
+              <Input id="bk-alt" placeholder="Describe the image content" value={block.alt} onChange={(e) => set({ alt: e.target.value })} />
             </Field>
-            <Field label="Height" htmlFor="bk-h">
+            <Field label="Display Height" htmlFor="bk-h">
               <div className="flex items-center gap-3">
-                <input id="bk-h" type="range" min={80} max={320} step={10} value={block.height} onChange={(e) => set({ height: +e.target.value })} className="flex-1 accent-[var(--accent)] cursor-pointer" />
-                <span className="tabular w-12 text-right text-[14px] text-muted">{block.height}px</span>
+                <input id="bk-h" type="range" min={80} max={400} step={10} value={block.height} onChange={(e) => set({ height: +e.target.value })} className="flex-1 accent-accent cursor-pointer" />
+                <span className="tabular w-12 text-right font-mono text-[14px] text-muted">{block.height}px</span>
               </div>
             </Field>
           </>
         )}
         {block.type === "spacer" && (
-          <Field label="Height" htmlFor="bk-sh">
+          <Field label="Vertical Space Height" htmlFor="bk-sh">
             <div className="flex items-center gap-3">
-              <input id="bk-sh" type="range" min={8} max={80} step={4} value={block.height} onChange={(e) => set({ height: +e.target.value })} className="flex-1 accent-[var(--accent)] cursor-pointer" />
-              <span className="tabular w-12 text-right text-[14px] text-muted">{block.height}px</span>
+              <input id="bk-sh" type="range" min={8} max={80} step={4} value={block.height} onChange={(e) => set({ height: +e.target.value })} className="flex-1 accent-accent cursor-pointer" />
+              <span className="tabular w-12 text-right font-mono text-[14px] text-muted">{block.height}px</span>
             </div>
           </Field>
         )}
-        {block.type === "divider" && <p className="text-[14px] text-subtle">Dividers have no settings.</p>}
+        {block.type === "divider" && (
+          <p className="text-[14px] text-subtle">Dividers render a standard 1px hairline rule styled according to your page layout settings.</p>
+        )}
       </div>
     </PanelSection>
   );
@@ -313,6 +410,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
   const [dirtySincePublish, setDirtySincePublish] = useState(source.status === "DRAFT");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const textRef = useRef(null);
 
   useEffect(() => {
@@ -599,6 +697,15 @@ function TemplateEditor({ source, isLocal, workspace }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setShortcutsOpen(true)}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            <Icon.Help size={16} />
+          </Button>
           <div className="hidden sm:block">
             <Segmented
               label="Device"
@@ -714,6 +821,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
                 )}
                 {tpl.blocks.map((b, i) => {
                   const isSel = selected === b.id && !preview;
+                  const isInvalidMedia = (b.type === "button" && !isPublicHttpUrl(b.href)) || (b.type === "image" && !isPublicHttpUrl(b.src));
                   return (
                     <div
                       key={b.id}
@@ -738,6 +846,11 @@ function TemplateEditor({ source, isLocal, workspace }) {
                         isSel && "outline-2 !outline-[#0755B5] ring-2 ring-[#0755B5]",
                       )}
                     >
+                      {isInvalidMedia && !preview && (
+                        <span className="absolute -top-3 left-2 z-10 inline-flex items-center gap-1 border border-warning bg-warning-soft px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-warning">
+                          <Icon.Alert size={10} /> URL Required
+                        </span>
+                      )}
                       <BlockView block={b} page={tpl.page} preview={preview} />
                       {isSel && (
                         <div
@@ -794,6 +907,11 @@ function TemplateEditor({ source, isLocal, workspace }) {
             textRef={textRef}
             insertVar={insertVar}
             variableOptions={variableOptions}
+            onMove={move}
+            onDuplicate={duplicate}
+            onRemove={remove}
+            isFirst={tpl.blocks.findIndex((b) => b.id === block?.id) === 0}
+            isLast={tpl.blocks.findIndex((b) => b.id === block?.id) === tpl.blocks.length - 1}
             onBlock={(bid, patch) =>
               update((t) => {
                 const target = t.blocks.find((b) => b.id === bid);
@@ -898,6 +1016,37 @@ function TemplateEditor({ source, isLocal, workspace }) {
         ) : !actionError && <p role="status">Loading senders…</p>) : (
           <Field label="Send to"><Input value={me.email} disabled /></Field>
         )}
+      </Dialog>
+
+      <Dialog
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+        title="Keyboard shortcuts & gestures"
+        description="Speed up your template editing workflow with these accessible hotkeys."
+        footer={<Button onClick={() => setShortcutsOpen(false)}>Done</Button>}
+      >
+        <div className="space-y-3">
+          {[
+            ["Save draft", ["⌘", "S"], "Immediately persists current draft changes to the database"],
+            ["Move block up", ["⌘", "↑"], "Swaps selected block with the block directly above"],
+            ["Move block down", ["⌘", "↓"], "Swaps selected block with the block directly below"],
+            ["Delete block", ["⌫ / Del"], "Removes the currently selected block"],
+            ["Deselect block", ["Esc"], "Deselects the block and returns to page-level layout settings"],
+            ["Insert variable", ["{{"], "Type inside any text block to open personalization tag autocomplete"],
+          ].map(([label, keys, desc]) => (
+            <div key={label as string} className="flex items-center justify-between border-b border-line/60 pb-2.5">
+              <div>
+                <p className="font-semibold text-[14px]">{label as string}</p>
+                <p className="text-[12px] text-muted">{desc as string}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {(keys as string[]).map((k) => (
+                  <Kbd key={k}>{k}</Kbd>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </Dialog>
 
       <Toast message={toast} onDone={() => setToast("")} />

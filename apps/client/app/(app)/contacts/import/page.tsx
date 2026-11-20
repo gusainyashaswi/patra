@@ -152,17 +152,61 @@ export default function ImportPage() {
               {review[tab].length ? (
                 <>
                   <Table>
-                    <thead><tr><Th>Row</Th><Th>Email</Th><Th>Name</Th><Th>{tab === "valid" ? "Contact" : "Reason"}</Th></tr></thead>
+                    <thead>
+                      <tr>
+                        <Th>File Row</Th>
+                        <Th>Email Address</Th>
+                        <Th>Name</Th>
+                        <Th>{tab === "valid" ? "Import Status" : "Reason / Error"}</Th>
+                      </tr>
+                    </thead>
                     <tbody>
-                      {review[tab].map((row) => <tr key={row.line}>
-                        <Td>{row.line}</Td><Td>{row.email || "—"}</Td><Td>{row.name || "—"}</Td>
-                        <Td>{row.reason ?? (row.existing ? "Already in contacts" : "New")}</Td>
-                      </tr>)}
+                      {review[tab].map((row) => (
+                        <tr key={row.line} className="hover:bg-surface-2/50 transition-colors">
+                          <Td className="font-mono text-subtle text-[13px]">#{row.line}</Td>
+                          <Td className="font-mono text-[14px]">
+                            {row.email ? (
+                              <span className="font-medium text-fg">{row.email}</span>
+                            ) : (
+                              <span className="text-danger italic">Missing email address</span>
+                            )}
+                          </Td>
+                          <Td>{row.name || <span className="text-subtle">—</span>}</Td>
+                          <Td>
+                            {tab === "valid" ? (
+                              <Badge tone={row.existing ? "info" : "success"}>
+                                {row.existing ? "Existing (Will Update)" : "New Contact"}
+                              </Badge>
+                            ) : tab === "invalid" ? (
+                              <span className="inline-flex items-center gap-1 font-mono text-[12px] font-semibold text-danger">
+                                <Icon.Alert size={13} className="shrink-0" /> {row.reason || "Malformed email syntax"}
+                              </span>
+                            ) : tab === "duplicate" ? (
+                              <span className="inline-flex items-center gap-1 font-mono text-[12px] font-semibold text-warning">
+                                <Icon.Copy size={13} className="shrink-0" /> {row.reason || "Duplicate address in file"}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 font-mono text-[12px] font-semibold text-danger">
+                                <Icon.Alert size={13} className="shrink-0" /> {row.reason || "Suppressed (Bounced / Unsubscribed)"}
+                              </span>
+                            )}
+                          </Td>
+                        </tr>
+                      ))}
                     </tbody>
                   </Table>
-                  {review.counts[tab] > review[tab].length && <p className="p-5 text-sm text-muted">Showing the first {review[tab].length} rows in this group.</p>}
+                  {review.counts[tab] > review[tab].length && (
+                    <p className="border-t border-line p-4 font-mono text-xs text-muted">
+                      Showing first {review[tab].length} of {fmt.n(review.counts[tab])} rows in this category.
+                    </p>
+                  )}
                 </>
-              ) : <p className="p-6 text-muted">No {categories[tab].toLowerCase()} rows.</p>}
+              ) : (
+                <div className="p-8 text-center text-muted">
+                  <Icon.CheckCircle size={22} className="mx-auto mb-2 text-success" />
+                  <p className="text-[14px]">No {categories[tab].toLowerCase()} rows detected in this upload.</p>
+                </div>
+              )}
               {issueCount > 0 && <div className="border-t border-line p-4"><Button size="sm" variant="secondary" loading={busy === "download"} disabled={!!busy} onClick={downloadIssues}><Icon.Download size={15} /> Download skipped rows</Button></div>}
             </Card>
             <Card className="p-6">

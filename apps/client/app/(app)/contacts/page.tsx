@@ -141,7 +141,15 @@ function ContactDirectory({ workspace }) {
             icon={<Icon.Search size={18} />}
             title={workspace && !q && view === "all" ? "No contacts yet" : "No contacts match"}
             description={workspace && !q && view === "all" ? "Import a CSV or Excel file to add contacts." : "Check the spelling or try another view."}
-            action={q || view !== "all" ? <Button variant="secondary" onClick={() => { setQ(""); setView("all"); setPage(0); }}>Clear filters</Button> : undefined}
+            action={
+              q || view !== "all" ? (
+                <Button variant="secondary" onClick={() => { setQ(""); setView("all"); setPage(0); }}>Clear filters</Button>
+              ) : (
+                <Button href={workspace ? `/contacts/import?org=${workspace.org.id}` : "/contacts/import"}>
+                  <Icon.Upload size={14} /> Import contacts
+                </Button>
+              )
+            }
           />
         ) : (
           <Table>
