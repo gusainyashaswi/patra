@@ -19,7 +19,7 @@ overviewRouter.get("/", requirePermission("view_overview"), asyncHandler(async (
   const fields = { sent: "sentAt", delivered: "deliveredAt", bounced: "bouncedAt", failed: "failedAt", opened: "openedAt" } as const;
   const counts = await Promise.all(Object.values(fields).map(field => CampaignRecipient.countDocuments({ organizationId, [field]: dateRange })));
   const stats = Object.fromEntries(Object.keys(fields).map((key, index) => [key, counts[index]]));
-  stats.pending = await CampaignRecipient.countDocuments({ organizationId, status: "QUEUED", createdAt: dateRange });
+  stats.pending = await CampaignRecipient.countDocuments({ organizationId, status: "QUEUED" });
   const [campaigns, transports, domains, senders, versions, lists] = await Promise.all([
     Campaign.find({ organizationId }).sort({ createdAt: -1 }).limit(5),
     MailTransport.find({ organizationId }).select("name status type"),
@@ -34,6 +34,7 @@ overviewRouter.get("/", requirePermission("view_overview"), asyncHandler(async (
     { label: "Add a verified sender", href: "/settings", done: senders.some(s => verifiedDomains.has(String(s.domainId))) },
     { label: "Import an audience", href: "/contacts/import", done: lists > 0 },
     { label: "Publish a template", href: "/templates", done: versions > 0 },
+    { label: "Queue first campaign", href: "/campaigns/new", done: campaigns.length > 0 },
   ];
   const alerts = [
     ...transports.filter(t => t.status !== "VERIFIED").map(t => ({ tone: "warning", title: `${t.name} needs a connection test`, href: "/settings" })),

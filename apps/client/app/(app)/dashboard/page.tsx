@@ -58,11 +58,8 @@ function Kpi({ label, value, sub, delta, highlight, href, tip }) {
 }
 
 // Onboarding Checklist: gives new workspaces clear, actionable progress from initial setup to first send
-function OnboardingChecklist({ setup = [], orgId }) {
+function OnboardingChecklist({ setup = [], orgId }: { setup?: Array<{ label?: string; href?: string; done?: boolean }>; orgId: string }) {
   const [open, setOpen] = useState(true);
-  const completedCount = setup.filter((s) => s.done).length;
-  const totalCount = setup.length || 5;
-  const isFullyComplete = completedCount === totalCount;
 
   // Standard steps with fallback links if setup object doesn't have custom ones
   const steps = [
@@ -114,7 +111,10 @@ function OnboardingChecklist({ setup = [], orgId }) {
     };
   });
 
-  const percent = Math.round((completedCount / totalCount) * 100);
+  const completedCount = enrichedSteps.filter((s) => s.done).length;
+  const totalCount = enrichedSteps.length;
+  const isFullyComplete = completedCount === totalCount;
+  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
     <div className="border border-line bg-panel p-5 transition-all">
@@ -204,16 +204,25 @@ function OnboardingChecklist({ setup = [], orgId }) {
 }
 
 // Stacked bars that stretch to the available height (no fixed px heights).
-function SendsChart({ p }) {
+function SendsChart({ p }: { p?: { days?: string[]; delivered?: number[]; bounced?: number[]; failed?: number[] } }) {
   const series = [
-    { key: "delivered", label: "Delivered", color: "var(--tint-1)" },
-    { key: "bounced", label: "Bounced", color: "var(--danger)" },
-    { key: "failed", label: "Failed", color: "var(--tint-3)" },
+    { key: "delivered" as const, label: "Delivered", color: "var(--tint-1)" },
+    { key: "bounced" as const, label: "Bounced", color: "var(--danger)" },
+    { key: "failed" as const, label: "Failed", color: "var(--tint-3)" },
   ];
-  const totals = p.days.map((_, i) => p.delivered[i] + p.bounced[i] + p.failed[i]);
+
+  if (!p?.days?.length) {
+    return (
+      <div className="flex min-h-[160px] flex-1 items-center justify-center p-6 text-muted font-mono text-[13px]">
+        No delivery activity recorded for this period.
+      </div>
+    );
+  }
+
+  const totals = p.days.map((_, i) => (p.delivered?.[i] ?? 0) + (p.bounced?.[i] ?? 0) + (p.failed?.[i] ?? 0));
   const raw = Math.max(...totals, 1);
   const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const max = [1, 2, 4, 5, 10].map((m) => m * mag).find((v) => v >= raw);
+  const max = [1, 2, 4, 5, 10].map((m) => m * mag).find((v) => v >= raw) || raw || 1;
   const ticks = [max, max / 2, 0];
 
   return (
@@ -222,7 +231,7 @@ function SendsChart({ p }) {
         {series.map((s) => (
           <li key={s.key} className="flex items-center gap-2 text-[14px] text-muted">
             <span className="h-2.5 w-2.5" style={{ background: s.color }} aria-hidden="true" />
-            {s.label} <span className="tabular font-mono font-semibold text-fg">{fmt.n(sum(p[s.key]))}</span>
+            {s.label} <span className="tabular font-mono font-semibold text-fg">{fmt.n(sum(p[s.key] || []))}</span>
           </li>
         ))}
       </ul>
@@ -239,10 +248,10 @@ function SendsChart({ p }) {
             {p.days.map((d, i) => (
               <div key={d} className="group relative mx-auto flex h-full w-full max-w-[56px] flex-1 flex-col justify-end">
                 <span className="tabular pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 whitespace-nowrap border border-line bg-bg px-2 py-1 font-mono text-[12px] opacity-0 transition-opacity group-hover:opacity-100" style={{ bottom: `calc(${(totals[i] / max) * 100}% + 6px)` }}>
-                  {fmt.n(totals[i])} · {p.bounced[i]} bounced
+                  {fmt.n(totals[i])} · {p.bounced?.[i] ?? 0} bounced
                 </span>
                 {[...series].reverse().map((s) => (
-                  <span key={s.key} className="w-full" style={{ height: `${(p[s.key][i] / max) * 100}%`, background: s.color }} />
+                  <span key={s.key} className="w-full" style={{ height: `${(((p[s.key]?.[i] ?? 0) / max) * 100).toFixed(1)}%`, background: s.color }} />
                 ))}
               </div>
             ))}
@@ -286,10 +295,10 @@ function Overview({ workspace }) {
     return () => { active = false; clearTimeout(timer); };
   }, [workspace, period]);
   const data = result?.period === period ? result : null;
-  const hasSent = Boolean(data?.stats.sent && data.stats.sent > 0);
-  const deliveryRate = hasSent ? fmt.pct(data.stats.delivered, data.stats.sent) : "0%";
-  const bounceRate = hasSent ? fmt.pct(data.stats.bounced, data.stats.sent) : "0%";
-  const isSetupIncomplete = Boolean(data?.setup && data.setup.some(step => !step.done));
+  const hasSent = Boolean(data?.stats?.sent && data.stats.sent > 0);
+  const deliveryRate = hasSent ? fmt.pct(data?.stats?.delivered ?? 0, data?.stats?.sent ?? 1) : "0%";
+  const bounceRate = hasSent ? fmt.pct(data?.stats?.bounced ?? 0, data?.stats?.sent ?? 1) : "0%";
+  const isSetupIncomplete = Boolean(data?.setup && data.setup.some((step: any) => !step.done));
 
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:gap-4">
@@ -319,7 +328,7 @@ function Overview({ workspace }) {
         <section aria-label="Email statistics" className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
           <Kpi
             label="Sent"
-            value={fmt.n(data.stats.sent)}
+            value={fmt.n(data?.stats?.sent ?? 0)}
             sub={hasSent ? `Last ${period.slice(0, -1)} days` : "No emails dispatched yet"}
             href="/campaigns"
             tip="Total emails handed off to mail transport in this period"
@@ -327,23 +336,23 @@ function Overview({ workspace }) {
           <Kpi
             label="Delivery rate"
             value={deliveryRate}
-            sub={hasSent ? `${fmt.n(data.stats.delivered)} delivered` : "Awaiting first send"}
-            highlight={data.stats.delivered > 0}
+            sub={hasSent ? `${fmt.n(data?.stats?.delivered ?? 0)} delivered` : "Awaiting first send"}
+            highlight={(data?.stats?.delivered ?? 0) > 0}
             href="/campaigns"
             tip="Percentage of sent emails confirmed delivered by transport"
           />
           <Kpi
             label="Bounce rate"
             value={bounceRate}
-            sub={hasSent ? `${fmt.n(data.stats.bounced)} bounced` : "0 bounces recorded"}
+            sub={hasSent ? `${fmt.n(data?.stats?.bounced ?? 0)} bounced` : "0 bounces recorded"}
             href="/campaigns"
             tip="Hard and soft bounces recorded across all recipients"
           />
           <Kpi
             label="In queue"
-            value={fmt.n(data.stats.pending)}
-            sub={data.stats.pending > 0 ? "Actively dispatching" : "Queue idle"}
-            highlight={data.stats.pending > 0}
+            value={fmt.n(data?.stats?.pending ?? 0)}
+            sub={(data?.stats?.pending ?? 0) > 0 ? "Actively dispatching" : "Queue idle"}
+            highlight={(data?.stats?.pending ?? 0) > 0}
             href="/campaigns"
             tip="Messages currently staged in the BullMQ worker queue"
           />
@@ -369,7 +378,7 @@ function Overview({ workspace }) {
                         href={alert.href}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <Icon.Alert size={15} className="text-warning shrink-0" />
+                          <Icon.Alert size={15} className={cx("shrink-0", alert.tone === "danger" ? "text-danger" : "text-warning")} />
                           <span className="truncate font-medium text-fg group-hover:text-accent-ink">{alert.title}</span>
                         </div>
                         <span className="font-mono text-[11px] font-bold uppercase text-muted group-hover:text-accent-ink shrink-0">
@@ -411,7 +420,7 @@ function Overview({ workspace }) {
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-[15px]">{campaign.name}</p>
                           <p className="text-[13px] text-muted">
-                            {fmt.n(campaign.counters.totalRecipients)} recipients · {fmt.n(campaign.counters.sentCount)} sent
+                            {fmt.n(campaign.counters?.totalRecipients ?? 0)} recipients · {fmt.n(campaign.counters?.sentCount ?? 0)} sent
                           </p>
                         </div>
                         <StatusBadge status={campaign.status} />
