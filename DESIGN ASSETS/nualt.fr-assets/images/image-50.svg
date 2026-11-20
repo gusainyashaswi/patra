@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" fill="none" stroke-linejoin="round" stroke-linecap="round" role="img" aria-label="Closed isometric cardboard box" width="160" height="160" color="rgb(244, 242, 232)" style="color: rgb(244, 242, 232);">
+  <g id="carton" style="transform-origin: 0px 0px;">
+    <g id="carton-outline" stroke="currentColor">
+      <path d="M661.886 294.000 L400.000 445.200 L400.000 646.800 L661.886 495.600 Z" fill="var(--blue)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M400.000 445.200 L138.114 294.000 L138.114 495.600 L400.000 646.800 Z" fill="var(--blue)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M400.000 142.800 L661.886 294.000 L400.000 445.200 L138.114 294.000 Z" fill="var(--blue)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </g>
+    <g id="carton-fill" stroke="var(--blue)" display="none">
+      <path d="M661.886 294.000 L400.000 445.200 L400.000 646.800 L661.886 495.600 Z" fill="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M400.000 445.200 L138.114 294.000 L138.114 495.600 L400.000 646.800 Z" fill="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M400.000 142.800 L661.886 294.000 L400.000 445.200 L138.114 294.000 Z" fill="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </g>
+    <g id="carton-pattern" stroke="currentColor">
+      <path d="M513.969 208.600 L252.083 359.800 L252.083 424.200 L286.031 443.800 L286.031 379.400 L547.917 228.200" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </g>
+  </g>
+</svg>

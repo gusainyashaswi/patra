@@ -39,6 +39,8 @@ export default function TemplatesPage() {
     return unsubscribe;
   }, []);
   const rows = [...(remote ?? []), ...drafts, ...(workspace === null ? templates : [])].filter((t) => t.name.toLowerCase().includes(q.toLowerCase()));
+  const blank = rows.find((template) => template.id === "local-starter-blank" || template.name === "Blank template");
+  const orderedRows = blank ? [blank, ...rows.filter((template) => template.id !== blank.id)] : rows;
 
   return (
     <>
@@ -53,35 +55,43 @@ export default function TemplatesPage() {
         <SearchInput className="w-full sm:w-64" placeholder="Search templates" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
-      {rows.length === 0 ? (
+      {orderedRows.length === 0 ? (
         <Card>
           <EmptyState icon={<Icon.Layout size={18} />} title="No templates found" description="Try a different name." />
         </Card>
       ) : (
         <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
-          {rows.map((t) => (
+          {orderedRows.map((t) => (
             <Link
               key={t.id}
-              href={`/templates/${t.id}${t.revision ? `?org=${workspace.org.id}${selectedList ? `&listId=${encodeURIComponent(selectedList)}` : ""}` : ""}`}
-              className="group overflow-hidden border-2 border-line bg-surface transition-[border-color,transform] duration-200 hover:-translate-y-1 hover:border-line-strong cursor-pointer"
+              href={`/templates/${t.id}${workspace ? `?org=${workspace.org.id}${selectedList ? `&listId=${encodeURIComponent(selectedList)}` : ""}` : ""}`}
+              aria-label={t.id === blank?.id ? "Create from blank template" : undefined}
+              className={t.id === blank?.id
+                ? "group grid min-h-[352px] place-items-center border-2 border-dashed border-line-strong bg-surface text-muted transition-[border-color,transform,color] duration-200 hover:-translate-y-1 hover:border-fg hover:text-fg cursor-pointer"
+                : "group overflow-hidden border-2 border-line bg-surface transition-[border-color,transform] duration-200 hover:-translate-y-1 hover:border-line-strong cursor-pointer"}
             >
-              {/* Live thumbnail: the real renderer, scaled, not a screenshot */}
-              <div className="relative h-56 overflow-hidden border-b border-line bg-surface-2" aria-hidden="true">
-                <div className="pointer-events-none absolute left-1/2 top-4 w-[600px] origin-top -translate-x-1/2 scale-[0.5]">
-                  <EmailPaper template={t} />
+              {t.id === blank?.id ? <>
+                <Icon.Plus size={36} />
+                <span className="sr-only">Blank template</span>
+              </> : <>
+                {/* Live thumbnail: the real renderer, scaled, not a screenshot */}
+                <div className="relative h-56 overflow-hidden border-b border-line bg-surface-2" aria-hidden="true">
+                  <div className="pointer-events-none absolute left-1/2 top-4 w-[600px] origin-top -translate-x-1/2 scale-[0.5]">
+                    <EmailPaper template={t} />
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-surface-2 to-transparent" />
                 </div>
-                <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-surface-2 to-transparent" />
-              </div>
-              <div className="p-6">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="truncate font-display text-[20px] font-bold tracking-[-0.02em]">{t.name}</h2>
-                  <StatusBadge status={t.status} />
+                <div className="p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="truncate font-display text-[20px] font-bold tracking-[-0.02em]">{t.name}</h2>
+                    <StatusBadge status={t.status} />
+                  </div>
+                  <p className="mt-1 truncate text-[14px] text-muted">{t.subject}</p>
+                  <p className="mt-3 text-[13px] text-subtle">
+                    {t.id.startsWith("local-") ? "Browser draft" : t.latestVersion ? `v${t.latestVersion}` : "Workspace draft"} · Edited {fmt.date(t.updatedAt)}
+                  </p>
                 </div>
-                <p className="mt-1 truncate text-[14px] text-muted">{t.subject}</p>
-                <p className="mt-3 text-[13px] text-subtle">
-                  {t.id.startsWith("local-") ? "Browser draft" : t.latestVersion ? `v${t.latestVersion}` : "Workspace draft"} · Edited {fmt.date(t.updatedAt)}
-                </p>
-              </div>
+              </>}
             </Link>
           ))}
         </div>

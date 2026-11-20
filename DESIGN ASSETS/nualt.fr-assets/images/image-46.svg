@@ -1,0 +1,15 @@
+<svg viewBox="178 28 444 302.534" fill="none" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" color="rgb(244, 242, 232)" style="color: rgb(244, 242, 232);"><g id="solo-plate-design">
+    <g id="solo-plate-design-outline" stroke="currentColor">
+      <path d="M613.938 157.017 Q613.938 160.517 607.876 164.017 L412.124 277.034 Q406.062 280.534 400 280.534 L400 328.534 Q406.062 328.534 412.124 325.034 L607.876 212.017 Q613.938 208.517 613.938 205.017 Z" fill="var(--blue)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M400 280.534 Q393.938 280.534 387.876 277.034 L192.124 164.017 Q186.062 160.517 186.062 157.017 L186.062 205.017 Q186.062 208.517 192.124 212.017 L387.876 325.034 Q393.938 328.534 400 328.534 Z" fill="var(--blue)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M412.124 37 L607.876 150.017 Q620 157.017 607.876 164.017 L412.124 277.034 Q400 284.034 387.876 277.034 L192.124 164.017 Q180 157.017 192.124 150.017 L387.876 37 Q400 30 412.124 37 Z" fill="var(--blue)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </g>
+    <g id="solo-plate-design-fill" stroke="var(--blue)">
+      <path d="M613.938 157.017 Q613.938 160.517 607.876 164.017 L412.124 277.034 Q406.062 280.534 400 280.534 L400 328.534 Q406.062 328.534 412.124 325.034 L607.876 212.017 Q613.938 208.517 613.938 205.017 Z" fill="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M400 280.534 Q393.938 280.534 387.876 277.034 L192.124 164.017 Q186.062 160.517 186.062 157.017 L186.062 205.017 Q186.062 208.517 192.124 212.017 L387.876 325.034 Q393.938 328.534 400 328.534 Z" fill="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <path d="M412.124 37 L607.876 150.017 Q620 157.017 607.876 164.017 L412.124 277.034 Q400 284.034 387.876 277.034 L192.124 164.017 Q180 157.017 192.124 150.017 L387.876 37 Q400 30 412.124 37 Z" fill="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </g>
+    <g id="solo-plate-design-pattern" stroke="var(--blue)">
+      <path d="M37 176C59 62 105 55 128 125C151 195 196 188 218 74 M37 176L59 62 M105 55L151 195 M196 188L218 74 M33 176a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z M124 125a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z M214 74a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z M56.5 62a2.5 2.5 0 1 0 5.0 0a2.5 2.5 0 1 0 -5.0 0Z M102.5 55a2.5 2.5 0 1 0 5.0 0a2.5 2.5 0 1 0 -5.0 0Z M148.5 195a2.5 2.5 0 1 0 5.0 0a2.5 2.5 0 1 0 -5.0 0Z M193.5 188a2.5 2.5 0 1 0 5.0 0a2.5 2.5 0 1 0 -5.0 0Z" transform="matrix(0.866 0.5 -0.8660254 0.5 400 30)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </g>
+  </g></svg>
