@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { audit } from "../services/audit.service.js";
 import express, { Router } from "express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { resourceParams, objectId } from "../middleware/orgAccess.js";
 import { requirePermission } from "../middleware/requirePermission.js";
@@ -9,7 +9,8 @@ import { Template, TemplateVersion, type ITemplate } from "../models/template.mo
 import type { HydratedDocument } from "mongoose";
 import { draftSchema } from "../schemas/template.schema.js";
 import { compileTemplate } from "../services/render/compile.js";
-import { sendTemplateTest } from "../services/template-test.service.js";
+import { sendSandboxTemplateTest, sendTemplateTest } from "../services/template-test.service.js";
+import { Membership, Role } from "../models/identity.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -17,7 +18,10 @@ export const templateRouter = Router({ mergeParams: true });
 templateRouter.use(requirePermission("manage_templates"), express.json({ limit: "768kb" }));
 const revisionSchema = z.object({ revision: z.string().uuid() });
 const saveSchema = revisionSchema.extend({ draft: draftSchema });
-const testSchema = revisionSchema.extend({ senderId: objectId, requestId: z.string().uuid() });
+const testSchema = z.union([
+  revisionSchema.extend({ senderId: objectId, requestId: z.string().uuid(), mode: z.literal("verified").optional() }).strict(),
+  revisionSchema.extend({ transportId: objectId, requestId: z.string().uuid(), mode: z.literal("sandbox") }).strict(),
+]);
 
 function latestVersion(template: HydratedDocument<ITemplate>) {
   return TemplateVersion.findOne({ templateId: template._id, organizationId: template.organizationId }).sort({ version: -1 });
@@ -107,10 +111,26 @@ templateRouter.post("/:id/publish", asyncHandler(async (req, res) => {
 }));
 
 templateRouter.post("/:id/test-send", requirePermission("send_campaigns"), asyncHandler(async (req, res) => {
-  const { revision, senderId, requestId } = testSchema.parse(req.body);
+  const input = testSchema.parse(req.body);
   const template = await findTemplate(req.params);
-  checkRevision(template, revision);
+  checkRevision(template, input.revision);
   const draft = draftSchema.parse(template.draftBlocks);
   compileTemplate(draft);
-  res.json({ data: await sendTemplateTest(String(template.organizationId), senderId, req.user!.email, requestId, compileTemplate(draft, true)) });
+  const organizationId = String(template.organizationId);
+  const sandbox = input.mode === "sandbox";
+  if (sandbox) {
+    const membership = await Membership.findOne({ userId: req.user!._id, organizationId });
+    const owner = membership && await Role.exists({ _id: membership.roleId, name: "org_admin", $or: [{ organizationId }, { organizationId: null }] });
+    if (!owner) throw new ApiError(403, "Only the organization owner can send sandbox tests.");
+  }
+  // Bind retries to this owner, draft revision, and selected transport/sender.
+  const requestId = createHash("sha256").update(JSON.stringify([
+    String(req.user!._id), template.id, input.revision, input.mode ?? "verified",
+    sandbox ? input.transportId : input.senderId, input.requestId,
+  ])).digest("hex");
+  const message = compileTemplate(draft, true);
+  const data = sandbox
+    ? await sendSandboxTemplateTest(organizationId, input.transportId, req.user!.email, requestId, message)
+    : await sendTemplateTest(organizationId, input.senderId, req.user!.email, requestId, message);
+  res.json({ data: { ...data, mode: sandbox ? "sandbox" : "verified" } });
 }));
