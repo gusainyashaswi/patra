@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EmailPaper } from "@/components/EmailRender";
 import { Icon } from "@/components/icons";
-import { Card, EmptyState, PageHeader, SearchInput, StatusBadge, fmt } from "@/components/ui";
+import { Card, EmptyState, PageHeader, SearchInput, Segmented, StatusBadge, fmt } from "@/components/ui";
 import { ensureStarterDrafts, readDrafts, subscribeDrafts } from "@/lib/template-drafts";
 import { templateRequest, useTemplateWorkspace } from "@/lib/template-api";
 import { templates } from "@/lib/mock";
@@ -16,6 +16,7 @@ export default function TemplatesPage() {
   const [remote, setRemote] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [selectedList, setSelectedList] = useState("");
+  const [view, setView] = useState("all");
   useEffect(() => {
     const listId = new URLSearchParams(location.search).get("listId") ?? "";
     queueMicrotask(() => setSelectedList(listId));
@@ -38,7 +39,9 @@ export default function TemplatesPage() {
     queueMicrotask(refresh);
     return unsubscribe;
   }, []);
-  const rows = [...(remote ?? []), ...drafts, ...(workspace === null ? templates : [])].filter((t) => t.name.toLowerCase().includes(q.toLowerCase()));
+  const rows = [...(remote ?? []), ...drafts, ...(workspace === null ? templates : [])]
+    .filter((template) => template.name.toLowerCase().includes(q.toLowerCase()))
+    .filter((template) => view === "all" || (view === "published" ? template.status === "PUBLISHED" : template.status !== "PUBLISHED"));
   const blank = rows.find((template) => template.id === "local-starter-blank" || template.name === "Blank template");
   const orderedRows = blank ? [blank, ...rows.filter((template) => template.id !== blank.id)] : rows;
 
@@ -51,13 +54,24 @@ export default function TemplatesPage() {
 
       {(workspaceError || loadError) && <p role="alert" className="mb-4 text-danger">{(workspaceError || loadError).message} <Link className="underline" href="/login">Sign in again</Link></p>}
       {(workspace === undefined && !workspaceError || workspace && !remote && !loadError) && <p role="status" className="mb-4 text-muted">Loading workspace templates…</p>}
-      <div className="mb-10 flex justify-end">
+      <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Segmented
+          label="Template list"
+          size="sm"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "all", label: "All" },
+            { value: "published", label: "Published" },
+            { value: "drafts", label: "Drafts" },
+          ]}
+        />
         <SearchInput className="w-full sm:w-64" placeholder="Search templates" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       {orderedRows.length === 0 ? (
         <Card>
-          <EmptyState icon={<Icon.Layout size={18} />} title="No templates found" description="Try a different name." />
+          <EmptyState icon={<Icon.Layout size={18} />} title={view === "published" ? "No published templates yet" : "No templates found"} description={view === "published" ? "Open a draft and publish a version to make it available for campaigns." : "Try a different name."} />
         </Card>
       ) : (
         <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
