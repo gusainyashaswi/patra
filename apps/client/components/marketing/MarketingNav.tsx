@@ -7,30 +7,26 @@ export function MarketingNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: "#transports", label: "Transports" },
+    { href: "#features", label: "Features" },
     { href: "#designer", label: "Designer" },
-    { href: "#audience", label: "Audience" },
-    { href: "#campaigns", label: "Campaigns" },
-    { href: "#tracking", label: "Telemetry" },
-    { href: "#architecture", label: "Architecture" },
     { href: "#faq", label: "FAQ" },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[rgba(7,85,181,0.25)] bg-[#F4F2E8] text-[#0755B5]">
-      <div className="mx-auto flex h-[72px] max-w-[1440px] w-full items-center justify-between px-4 sm:px-10">
+    <header className="sticky top-0 z-50 w-full border-b border-[rgba(7,85,181,0.2)] bg-[#F4F2E8] text-[#0755B5]">
+      <div className="mx-auto flex h-[72px] max-w-[1440px] w-full items-center justify-between px-5 sm:px-10">
         {/* Brand Wordmark */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <Link href="/" className="font-yellix text-[24px] sm:text-[26px] font-bold tracking-tight text-[#0755B5] select-none hover:opacity-90">
+        <div className="flex items-center gap-3 shrink-0">
+          <Link href="/" className="font-yellix text-[26px] font-bold tracking-tight text-[#0755B5] select-none hover:opacity-90">
             PATRA
           </Link>
-          <span className="hidden md:inline-block font-pixel text-[11px] uppercase tracking-wider text-[rgba(7,85,181,0.65)] border border-[rgba(7,85,181,0.3)] px-2 py-0.5">
+          <span className="hidden sm:inline-block font-pixel text-[11px] uppercase tracking-wider text-[rgba(7,85,181,0.65)] border border-[rgba(7,85,181,0.3)] px-2 py-0.5">
             v0.1 · Self-Hosted
           </span>
         </div>
 
-        {/* Desktop Anchor Navigation */}
-        <nav className="hidden lg:flex items-center gap-4 xl:gap-7 font-mono text-[12px] xl:text-[13px] tracking-wider uppercase">
+        {/* Minimalist Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-8 font-mono text-[13px] tracking-wider uppercase">
           {navLinks.map((link) => (
             <a
               key={link.href}
@@ -43,31 +39,31 @@ export function MarketingNav() {
         </nav>
 
         {/* Action CTAs */}
-        <div className="hidden sm:flex items-center gap-3 xl:gap-4 shrink-0 pl-4">
+        <div className="hidden sm:flex items-center gap-5 shrink-0">
           <Link
             href="/dashboard?demo=1"
-            className="text-[12px] xl:text-[13px] font-mono uppercase tracking-wider text-[rgba(7,85,181,0.8)] hover:text-[#0755B5] transition-colors"
+            className="text-[13px] font-mono uppercase tracking-wider text-[rgba(7,85,181,0.8)] hover:text-[#0755B5] transition-colors"
           >
             Live Demo
           </Link>
           <Link
             href="/login"
-            className="text-[12px] xl:text-[13px] font-mono uppercase tracking-wider text-[#0755B5] hover:opacity-75 transition-opacity"
+            className="text-[13px] font-mono uppercase tracking-wider text-[#0755B5] hover:opacity-75 transition-opacity"
           >
             Log in
           </Link>
           <Link
             href="/signup"
-            className="mkt-btn mkt-btn-primary mkt-btn-sm text-[12px] xl:text-[13px] font-mono tracking-wider"
+            className="mkt-btn mkt-btn-primary mkt-btn-sm text-[13px] font-mono tracking-wider"
           >
-            Launch Console
+            Get started →
           </Link>
         </div>
 
         {/* Mobile Hamburger Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="lg:hidden p-2 text-[#0755B5] cursor-pointer shrink-0 ml-2"
+          className="md:hidden p-2 text-[#0755B5] cursor-pointer shrink-0"
           aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
           aria-expanded={mobileMenuOpen}
         >
@@ -83,7 +79,7 @@ export function MarketingNav() {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-[rgba(7,85,181,0.25)] bg-[#F4F2E8] px-5 py-6 space-y-4">
+        <div className="md:hidden border-t border-[rgba(7,85,181,0.2)] bg-[#F4F2E8] px-5 py-6 space-y-4 animate-fade-up">
           <nav className="flex flex-col space-y-3 font-mono text-[14px] uppercase tracking-wider">
             {navLinks.map((link) => (
               <a
@@ -100,23 +96,23 @@ export function MarketingNav() {
             <Link
               href="/dashboard?demo=1"
               onClick={() => setMobileMenuOpen(false)}
-              className="py-2 text-center border border-[#0755B5] text-[#0755B5]"
+              className="py-1 text-[rgba(7,85,181,0.8)]"
             >
-              Explore Live Demo
+              Live Demo
             </Link>
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
-              className="py-2 text-center text-[#0755B5]"
+              className="py-1 text-[#0755B5]"
             >
-              Log in to Account
+              Log in
             </Link>
             <Link
               href="/signup"
               onClick={() => setMobileMenuOpen(false)}
-              className="mkt-btn mkt-btn-primary py-3 text-center"
+              className="mkt-btn mkt-btn-primary text-center justify-center h-11"
             >
-              Get Started / Sign up
+              Get started →
             </Link>
           </div>
         </div>
