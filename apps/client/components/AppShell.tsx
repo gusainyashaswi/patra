@@ -77,7 +77,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 href={n.href}
                 aria-current={isActive(n.href) ? "page" : undefined}
                 className={cx(
-                  "relative py-2 font-mono text-[13px] font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors",
+                  "relative py-2 font-mono text-[13px] font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
                   isActive(n.href) ? "text-on-nav" : "text-on-nav/60 hover:text-on-nav",
                 )}
               >

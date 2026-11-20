@@ -31,14 +31,14 @@ function PanelLink({ href, children }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-1.5 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-muted hover:text-accent-ink cursor-pointer transition-colors"
+      className="inline-flex items-center gap-1.5 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-muted hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 cursor-pointer transition-colors"
     >
       {children} <Icon.ArrowRight size={13} />
     </Link>
   );
 }
 
-function Kpi({ label, value, sub, delta, highlight, href }) {
+function Kpi({ label, value, sub, delta, highlight, href, tip }) {
   const inner = (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -46,15 +46,161 @@ function Kpi({ label, value, sub, delta, highlight, href }) {
         {delta}
       </div>
       <div className={cx("display tabular mt-2 text-[30px] tracking-[-0.045em] xl:text-[38px]", highlight && "text-accent-ink")}>{value}</div>
-      <div className="mt-1 truncate text-[14px] text-subtle">{sub}</div>
+      <div className="mt-1 truncate text-[14px] text-subtle" title={tip || sub}>{sub}</div>
     </>
   );
   const cls = cx(
-    "block min-w-0 border bg-panel px-5 py-4 transition-colors",
-    highlight ? "border-accent" : "border-line",
-    href && "hover:border-line-strong cursor-pointer",
+    "block min-w-0 border bg-panel px-5 py-4 transition-[border-color,background-color] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+    highlight ? "border-accent bg-accent-soft/30" : "border-line",
+    href && "hover:border-line-strong hover:bg-surface-2/40 cursor-pointer",
   );
   return href ? <Link href={href} className={cls}>{inner}</Link> : <div className={cls}>{inner}</div>;
+}
+
+// Onboarding Checklist: gives new workspaces clear, actionable progress from initial setup to first send
+function OnboardingChecklist({ setup = [], orgId }) {
+  const [open, setOpen] = useState(true);
+  const completedCount = setup.filter((s) => s.done).length;
+  const totalCount = setup.length || 5;
+  const isFullyComplete = completedCount === totalCount;
+
+  // Standard steps with fallback links if setup object doesn't have custom ones
+  const steps = [
+    {
+      id: "transport",
+      label: "Connect Resend mail transport",
+      desc: "Add your provider API key so Patra can securely dispatch transactional and bulk emails.",
+      href: `/settings?tab=transports&org=${orgId}`,
+      cta: "Connect provider",
+    },
+    {
+      id: "sender",
+      label: "Configure verified sender identity",
+      desc: "Specify the from-address and sender name your recipients will see in their inboxes.",
+      href: `/settings?tab=senders&org=${orgId}`,
+      cta: "Add sender",
+    },
+    {
+      id: "contacts",
+      label: "Import your first audience list",
+      desc: "Upload a CSV or XLSX contact list. Bounces and unsubscribes are automatically managed.",
+      href: `/contacts/import?org=${orgId}`,
+      cta: "Import contacts",
+    },
+    {
+      id: "template",
+      label: "Create and publish an email template",
+      desc: "Build a responsive template with personalizing variables, then publish a locked version.",
+      href: `/templates?org=${orgId}`,
+      cta: "Browse templates",
+    },
+    {
+      id: "campaign",
+      label: "Schedule or queue your first campaign",
+      desc: "Select a published template, choose your audience, and review the pre-send safety estimate.",
+      href: `/campaigns/new?org=${orgId}`,
+      cta: "New campaign",
+    },
+  ];
+
+  // Map backend setup state onto our curated steps
+  const enrichedSteps = steps.map((step, idx) => {
+    const matched = setup[idx];
+    return {
+      ...step,
+      href: matched?.href || step.href,
+      label: matched?.label || step.label,
+      done: matched?.done ?? false,
+    };
+  });
+
+  const percent = Math.round((completedCount / totalCount) * 100);
+
+  return (
+    <div className="border border-line bg-panel p-5 transition-all">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="grid h-8 w-8 place-items-center border border-line-strong bg-surface-2 font-mono text-[12px] font-bold text-fg" aria-hidden="true">
+            {completedCount}/{totalCount}
+          </div>
+          <div>
+            <h3 className="font-display text-[17px] font-bold tracking-tight">
+              {isFullyComplete ? "Workspace setup complete" : "Get started with Patra"}
+            </h3>
+            <p className="text-[13px] text-muted">
+              {isFullyComplete
+                ? "All transmission prerequisites, sender domains, and lists are ready for production sending."
+                : `${completedCount} of ${totalCount} steps completed · Finish setup to begin sending live campaigns`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="h-2 w-28 bg-surface-3 overflow-hidden" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Setup progress">
+              <div className="h-full bg-accent transition-[width] duration-300" style={{ width: `${percent}%` }} />
+            </div>
+            <span className="font-mono text-[12px] text-subtle">{percent}%</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen((prev) => !prev)}
+            aria-expanded={open}
+            className="inline-flex items-center gap-1 font-mono text-[11px] font-bold uppercase tracking-wider text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-accent cursor-pointer px-2 py-1 border border-line"
+          >
+            {open ? "Hide checklist" : "Show checklist"}
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="mt-5 border-t border-line pt-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {enrichedSteps.map((step, idx) => (
+              <div
+                key={step.id}
+                className={cx(
+                  "flex flex-col justify-between border p-3.5 transition-colors",
+                  step.done ? "border-line bg-surface-2/30" : "border-line-strong bg-panel",
+                )}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] font-bold text-subtle">0{idx + 1}</span>
+                    {step.done ? (
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-success uppercase">
+                        <Icon.Check size={13} /> Ready
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] font-semibold uppercase text-accent-ink">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                  <h4 className={cx("mt-2 text-[14px] font-semibold leading-snug", step.done ? "text-muted" : "text-fg")}>
+                    {step.label}
+                  </h4>
+                  <p className="mt-1 text-[12px] leading-relaxed text-subtle">{step.desc}</p>
+                </div>
+                <div className="mt-4 pt-2 border-t border-line/60">
+                  <Link
+                    href={step.href}
+                    className={cx(
+                      "inline-flex items-center gap-1 font-mono text-[11px] font-bold uppercase tracking-wider focus-visible:outline-2 focus-visible:outline-accent cursor-pointer transition-colors",
+                      step.done
+                        ? "text-subtle hover:text-fg"
+                        : "text-accent-ink hover:underline",
+                    )}
+                  >
+                    {step.done ? "Manage" : step.cta} <Icon.ArrowRight size={11} />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Stacked bars that stretch to the available height (no fixed px heights).
@@ -140,39 +286,140 @@ function Overview({ workspace }) {
     return () => { active = false; clearTimeout(timer); };
   }, [workspace, period]);
   const data = result?.period === period ? result : null;
-  const nextStep = data?.setup.find(step => !step.done);
-  const deliveryRate = data?.stats.sent ? fmt.pct(data.stats.delivered, data.stats.sent) : "—";
-  const bounceRate = data?.stats.sent ? fmt.pct(data.stats.bounced, data.stats.sent) : "—";
+  const hasSent = Boolean(data?.stats.sent && data.stats.sent > 0);
+  const deliveryRate = hasSent ? fmt.pct(data.stats.delivered, data.stats.sent) : "0%";
+  const bounceRate = hasSent ? fmt.pct(data.stats.bounced, data.stats.sent) : "0%";
+  const isSetupIncomplete = Boolean(data?.setup && data.setup.some(step => !step.done));
+
   return (
     <div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:gap-4">
       <header className="flex shrink-0 flex-wrap items-end justify-between gap-5 border-b border-line pb-6">
         <div>
-          <p className="label text-accent-ink">Delivery health</p>
+          <p className="label text-accent-ink">Delivery telemetry & health</p>
           <h1 className="display mt-2 text-[40px] sm:text-[48px]">Overview</h1>
-          <p className="mt-2 text-[15px] text-muted">{workspace.org.name} · updated from your selected reporting window</p>
+          <p className="mt-2 text-[15px] text-muted">{workspace.org.name} · real-time queue status & delivery analytics</p>
         </div>
-        <Segmented label="Period" size="sm" value={period} onChange={setPeriod} options={[{ value: "7d", label: "7 days" }, { value: "30d", label: "30 days" }, { value: "90d", label: "90 days" }]} />
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/campaigns/new?org=${workspace.org.id}`}
+            className="inline-flex h-9 items-center gap-1.5 bg-accent px-3.5 font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-on-accent hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-accent cursor-pointer transition-colors"
+          >
+            <Icon.Plus size={13} /> New campaign
+          </Link>
+          <Segmented label="Period" size="sm" value={period} onChange={setPeriod} options={[{ value: "7d", label: "7 days" }, { value: "30d", label: "30 days" }, { value: "90d", label: "90 days" }]} />
+        </div>
       </header>
       {error && <p role="alert" className="text-danger">{error} {data && "Showing the last available results."}</p>}
       {!data ? <p role="status">{error ? "Overview unavailable." : "Loading overview…"}</p> : <>
+        {/* Onboarding Checklist for setup clarity */}
+        {(isSetupIncomplete || data.campaigns.length === 0) && (
+          <OnboardingChecklist setup={data.setup} orgId={workspace.org.id} />
+        )}
+
         <section aria-label="Email statistics" className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
-          <Kpi label="Sent" value={fmt.n(data.stats.sent)} sub={`Last ${period.slice(0, -1)} days`} href="/campaigns" />
-          <Kpi label="Delivery rate" value={deliveryRate} sub={`${fmt.n(data.stats.delivered)} delivered`} highlight href="/campaigns" />
-          <Kpi label="Bounce rate" value={bounceRate} sub={`${fmt.n(data.stats.bounced)} bounced`} href="/campaigns" />
-          <Kpi label="In queue" value={fmt.n(data.stats.pending)} sub="Waiting to send" highlight={data.stats.pending > 0} href="/campaigns" />
+          <Kpi
+            label="Sent"
+            value={fmt.n(data.stats.sent)}
+            sub={hasSent ? `Last ${period.slice(0, -1)} days` : "No emails dispatched yet"}
+            href="/campaigns"
+            tip="Total emails handed off to mail transport in this period"
+          />
+          <Kpi
+            label="Delivery rate"
+            value={deliveryRate}
+            sub={hasSent ? `${fmt.n(data.stats.delivered)} delivered` : "Awaiting first send"}
+            highlight={data.stats.delivered > 0}
+            href="/campaigns"
+            tip="Percentage of sent emails confirmed delivered by transport"
+          />
+          <Kpi
+            label="Bounce rate"
+            value={bounceRate}
+            sub={hasSent ? `${fmt.n(data.stats.bounced)} bounced` : "0 bounces recorded"}
+            href="/campaigns"
+            tip="Hard and soft bounces recorded across all recipients"
+          />
+          <Kpi
+            label="In queue"
+            value={fmt.n(data.stats.pending)}
+            sub={data.stats.pending > 0 ? "Actively dispatching" : "Queue idle"}
+            highlight={data.stats.pending > 0}
+            href="/campaigns"
+            tip="Messages currently staged in the BullMQ worker queue"
+          />
         </section>
-        {nextStep && <Link href={nextStep.href} className="border border-line bg-panel px-5 py-3 text-[15px]">Setup {data.setup.filter(step => step.done).length}/{data.setup.length} · {nextStep.label} →</Link>}
+
         <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[1.5fr_1fr]">
           <Panel title="Delivery events" action={<span className="label text-subtle">{period.toUpperCase()} · UTC</span>} className="min-h-[250px] lg:min-h-0">
             <SendsChart p={data.series} />
           </Panel>
           <div className="flex min-w-0 flex-col gap-4 lg:min-h-0">
-            <Panel title="Needs attention" action={<PanelLink href="/settings">Settings</PanelLink>}>
-              {!data.alerts.length ? <p className="px-5 py-3 text-muted">No alerts for this period.</p> : <ul className="divide-y divide-line">{data.alerts.slice(0, 2).map(alert => <li key={alert.title}><Link className="block truncate px-5 py-3 text-[15px]" href={alert.href}>{alert.title}</Link></li>)}</ul>}
-              {data.alerts.length > 2 && <p className="px-5 pb-2 text-sm text-muted">{data.alerts.length - 2} more · review Settings and Campaigns</p>}
+            <Panel title="System status & alerts" action={<PanelLink href="/settings">Settings</PanelLink>}>
+              {!data.alerts.length ? (
+                <div className="flex items-center gap-3 px-5 py-4 text-muted">
+                  <Icon.CheckCircle size={18} className="text-success shrink-0" />
+                  <p className="text-[14px]">All transmission channels nominal. No delivery warnings or domain alerts.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {data.alerts.slice(0, 3).map(alert => (
+                    <li key={alert.title}>
+                      <Link
+                        className="group flex items-center justify-between gap-3 px-5 py-3.5 text-[14px] hover:bg-surface-2 transition-colors"
+                        href={alert.href}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon.Alert size={15} className="text-warning shrink-0" />
+                          <span className="truncate font-medium text-fg group-hover:text-accent-ink">{alert.title}</span>
+                        </div>
+                        <span className="font-mono text-[11px] font-bold uppercase text-muted group-hover:text-accent-ink shrink-0">
+                          Resolve →
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {data.alerts.length > 3 && (
+                <div className="border-t border-line px-5 py-2">
+                  <Link href="/settings" className="font-mono text-[11px] font-bold uppercase text-muted hover:text-fg">
+                    {data.alerts.length - 3} more alerts · Review Settings
+                  </Link>
+                </div>
+              )}
             </Panel>
-            <Panel title="Recent campaigns" action={<PanelLink href="/campaigns">All</PanelLink>} className="lg:flex-1">
-              {!data.campaigns.length ? <div className="px-5 py-5 text-muted">No campaigns yet. <Link href="/campaigns/new" className="underline">Create your first campaign</Link></div> : <ul className="divide-y divide-line">{data.campaigns.slice(0, 4).map(campaign => <li key={campaign.id}><Link className="flex items-center gap-3 px-5 py-3" href={`/campaigns/${campaign.id}`}><div className="min-w-0 flex-1"><p className="truncate font-semibold">{campaign.name}</p><p className="text-sm text-muted">{fmt.n(campaign.counters.totalRecipients)} recipients · {fmt.n(campaign.counters.sentCount)} sent</p></div><StatusBadge status={campaign.status} /></Link></li>)}</ul>}
+            <Panel title="Recent campaigns" action={<PanelLink href="/campaigns">View all</PanelLink>} className="lg:flex-1">
+              {!data.campaigns.length ? (
+                <div className="flex flex-col items-center justify-center px-5 py-8 text-center text-muted">
+                  <Icon.Mail size={22} className="mb-2 text-subtle" />
+                  <p className="text-[14px]">No campaigns dispatched yet.</p>
+                  <Link
+                    href={`/campaigns/new?org=${workspace.org.id}`}
+                    className="mt-3 inline-flex items-center gap-1 font-mono text-[12px] font-bold uppercase tracking-wider text-accent-ink hover:underline"
+                  >
+                    Launch your first campaign <Icon.ArrowRight size={12} />
+                  </Link>
+                </div>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {data.campaigns.slice(0, 4).map(campaign => (
+                    <li key={campaign.id}>
+                      <Link
+                        className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2 transition-colors"
+                        href={`/campaigns/${campaign.id}?org=${workspace.org.id}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-[15px]">{campaign.name}</p>
+                          <p className="text-[13px] text-muted">
+                            {fmt.n(campaign.counters.totalRecipients)} recipients · {fmt.n(campaign.counters.sentCount)} sent
+                          </p>
+                        </div>
+                        <StatusBadge status={campaign.status} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Panel>
           </div>
         </div>

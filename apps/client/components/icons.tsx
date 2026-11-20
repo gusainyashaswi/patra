@@ -39,6 +39,7 @@ export const Icon: Record<string, (props: IconProps) => ReactElement> = {
   X: (p) => <Svg {...p}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></Svg>,
   Alert: (p) => <Svg {...p}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></Svg>,
   Info: (p) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 16v-4" /><path d="M12 8h.01" /></Svg>,
+  Help: (p) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></Svg>,
   ChevronRight: (p) => <Svg {...p}><path d="m9 18 6-6-6-6" /></Svg>,
   ChevronLeft: (p) => <Svg {...p}><path d="m15 18-6-6 6-6" /></Svg>,
   ChevronDown: (p) => <Svg {...p}><path d="m6 9 6 6 6-6" /></Svg>,

@@ -35,6 +35,7 @@ export function Button({ variant = "primary", size = "md", href, loading = false
     "inline-flex items-center justify-center whitespace-nowrap cursor-pointer select-none",
     !isIcon && "font-mono font-bold uppercase tracking-[0.1em]",
     "transition-[background-color,color,border-color,transform] duration-150 active:translate-y-px",
+    "focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
     "disabled:pointer-events-none disabled:opacity-40",
     buttonVariants[variant],
     buttonSizes[size],
@@ -204,8 +205,9 @@ export function Field({ label, hint, error, children, optional, htmlFor }: Dynam
 
 const inputBase =
   "w-full border-2 border-line bg-surface px-4 text-[16px] text-fg placeholder:text-subtle " +
-  "transition-[border-color,background-color] duration-150 hover:border-subtle " +
+  "transition-[border-color,background-color,outline] duration-150 hover:border-subtle " +
   "focus:outline-none focus:border-line-strong focus:bg-bg " +
+  "focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1 " +
   "aria-[invalid=true]:border-danger disabled:opacity-60";
 
 export function Input({ className, invalid, ...rest }: DynamicProps) {
@@ -252,7 +254,7 @@ export function Segmented({ options, value, onChange, label, size = "md" }: Dyna
             onClick={() => onChange(o.value)}
             className={cx(
               "relative inline-flex items-center gap-2 font-mono font-bold uppercase tracking-[0.1em] cursor-pointer transition-colors duration-150",
-              "border-b-2 pb-1.5",
+              "border-b-2 pb-1.5 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
               size === "sm" ? "h-9 text-[12px]" : "h-10 text-[13px]",
               active ? "border-accent text-fg" : "border-transparent text-subtle hover:text-fg",
             )}
@@ -431,15 +433,23 @@ export function Toast({ message, tone = "success", onDone }: DynamicProps) {
   }, [onDone]);
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(() => onDoneRef.current(), 3200);
+    const t = setTimeout(() => onDoneRef.current(), 3500);
     return () => clearTimeout(t);
   }, [message]);
   return (
     <div aria-live="polite" className="pointer-events-none fixed bottom-8 left-1/2 z-[60] -translate-x-1/2">
       {message && (
         <div className="pointer-events-auto flex items-center gap-3 border border-line-strong bg-surface px-5 py-4 text-[15px] text-fg shadow-[4px_4px_0_0_var(--accent)] animate-pop-in">
-          {tone === "success" ? <Icon.CheckCircle size={18} className="text-success" /> : <Icon.Info size={18} className="text-accent" />}
-          {message}
+          {tone === "success" ? <Icon.CheckCircle size={18} className="text-success shrink-0" /> : <Icon.Info size={18} className="text-accent shrink-0" />}
+          <span>{message}</span>
+          <button
+            type="button"
+            onClick={() => onDoneRef.current()}
+            aria-label="Dismiss notification"
+            className="ml-3 grid h-6 w-6 place-items-center text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-accent cursor-pointer"
+          >
+            <Icon.X size={14} />
+          </button>
         </div>
       )}
     </div>
