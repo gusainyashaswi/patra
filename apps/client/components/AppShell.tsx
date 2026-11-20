@@ -9,9 +9,9 @@ import { api, inDemoMode } from "@/lib/api";
 
 const nav = [
   { href: "/dashboard", label: "Overview" },
-  { href: "/campaigns", label: "Campaigns" },
-  { href: "/templates", label: "Templates" },
   { href: "/contacts", label: "Contacts" },
+  { href: "/templates", label: "Templates" },
+  { href: "/campaigns", label: "Campaigns" },
   { href: "/settings", label: "Settings" },
 ];
 

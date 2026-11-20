@@ -2,11 +2,61 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
-import { Badge, Button, EmptyState, PageHeader, SearchInput, Segmented, Select, Table, Td, Th, fmt } from "@/components/ui";
+import { Badge, Button, Dialog, EmptyState, Field, Input, PageHeader, SearchInput, Segmented, Select, Table, Td, Th, fmt } from "@/components/ui";
 import { contacts as demoContacts, lists as demoLists } from "@/lib/mock";
 import { useWorkspace, workspaceRequest } from "@/lib/workspace-api";
 
 const PAGE = 12;
+
+function AddContactDialog({ workspace, lists, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [college, setCollege] = useState("");
+  const [listId, setListId] = useState("");
+  const [listName, setListName] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function openDialog() {
+    setName(""); setEmail(""); setCollege(""); setError("");
+    setListId(lists[0]?.id ?? ""); setListName(""); setOpen(true);
+  }
+  async function save(event) {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true); setError("");
+    try {
+      const data = await workspaceRequest(workspace, "/contacts", {
+        method: "POST",
+        body: { email: email.trim(), name: name.trim() || undefined, college: college.trim() || undefined, ...(listId ? { listId } : { listName: listName.trim() }) },
+      });
+      setOpen(false);
+      onSaved(data.list);
+    } catch (error) { setError(error.message); }
+    finally { setSaving(false); }
+  }
+  return <>
+    <Button onClick={openDialog}><Icon.Plus size={15} /> Add contact</Button>
+    <Dialog open={open} onClose={() => { if (!saving) setOpen(false); }} title="Add a contact"
+      description="Add one person directly to an audience so they can be selected for a campaign."
+      footer={<><Button variant="secondary" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" form="add-contact-form" loading={saving}>Add contact</Button></>}>
+      <form id="add-contact-form" className="space-y-4" onSubmit={save}>
+        <Field label="Name" htmlFor="contact-name"><Input id="contact-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={200} /></Field>
+        <Field label="Email" htmlFor="contact-email"><Input id="contact-email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={254} /></Field>
+        <Field label="College" htmlFor="contact-college"><Input id="contact-college" value={college} onChange={(event) => setCollege(event.target.value)} maxLength={2000} /></Field>
+        <Field label="Audience" htmlFor="contact-audience-select" hint="The contact is added directly to this campaign audience.">
+          <Select id="contact-audience-select" value={listId} onChange={(event) => setListId(event.target.value)}>
+            <option value="">Create a new audience</option>
+            {lists.map((list) => <option key={list.id} value={list.id}>{list.name}</option>)}
+          </Select>
+        </Field>
+        {!listId && <Field label="New audience name" htmlFor="contact-list-name"><Input id="contact-list-name" required value={listName} onChange={(event) => setListName(event.target.value)} maxLength={100} /></Field>}
+        {error && <p role="alert" className="text-danger">{error}</p>}
+      </form>
+    </Dialog>
+  </>;
+}
 
 export default function ContactsPage() {
   const { workspace, error } = useWorkspace();
@@ -24,6 +74,7 @@ function ContactDirectory({ workspace }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [listError, setListError] = useState("");
+  const [refresh, setRefresh] = useState(0);
   const query = new URLSearchParams({ q, view, page: String(page), ...(listId ? { listId } : {}) }).toString();
   useEffect(() => {
     if (!workspace) return;
@@ -33,7 +84,7 @@ function ContactDirectory({ workspace }) {
       (error) => { if (active) setListError(error.message); },
     );
     return () => { active = false; };
-  }, [workspace]);
+  }, [workspace, refresh]);
 
   useEffect(() => {
     if (!workspace) return;
@@ -45,7 +96,7 @@ function ContactDirectory({ workspace }) {
       );
     }, 200);
     return () => { clearTimeout(timer); active = false; };
-  }, [workspace, query]);
+  }, [workspace, query, refresh]);
 
   const rows = useMemo(
     () =>
@@ -80,16 +131,22 @@ function ContactDirectory({ workspace }) {
     }
   }
 
+  function contactSaved(list) {
+    selectList(list.id);
+    setRefresh((value) => value + 1);
+  }
+
   return (
     <>
       <PageHeader
         title="Contacts"
         description="Everyone you can send to. Unsubscribed and bounced addresses are suppressed from every campaign automatically."
-        actions={
+        actions={<div className="flex flex-wrap gap-2">
+          {workspace && <AddContactDialog workspace={workspace} lists={lists} onSaved={contactSaved} />}
           <Button href={workspace ? `/contacts/import?org=${workspace.org.id}` : "/contacts/import"}>
             <Icon.Upload size={15} /> Import contacts
           </Button>
-        }
+        </div>}
       />
 
       {listError && <p role="alert" className="mb-4 text-danger">{listError}</p>}

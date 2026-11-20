@@ -97,6 +97,13 @@ const contactQuery = z.object({
   page: z.coerce.number().int().min(0).max(50_000).default(0),
   listId: objectId.optional(),
 });
+const createContactBody = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  name: z.string().trim().max(200).optional(),
+  college: z.string().trim().max(2000).optional(),
+  listId: objectId.optional(),
+  listName: z.string().trim().min(1).max(100).optional(),
+}).refine((options) => Boolean(options.listId) !== Boolean(options.listName), "Choose an existing audience or enter a new audience name.");
 const pageSize = 12;
 
 function joinSuppression(organizationId: Types.ObjectId): PipelineStage.Lookup {
@@ -118,6 +125,31 @@ contactRouter.get("/fields", asyncHandler(async (req, res) => {
   ]);
   const fields = rows.map(row => row._id).filter(key => /^\w{1,64}$/.test(key) && !["__proto__", "prototype", "constructor", "name", "email"].includes(key));
   res.json({ data: fields });
+}));
+
+contactRouter.post("/", asyncHandler(async (req, res) => {
+  const input = createContactBody.parse(req.body);
+  const organizationId = new Types.ObjectId(req.user!.organizationId!);
+  const changes: Record<string, string> = {};
+  if (input.name) changes.name = input.name;
+  if (input.college) changes["customFields.college"] = input.college;
+  const contact = await Contact.findOneAndUpdate(
+    { organizationId, email: input.email },
+    {
+      ...(Object.keys(changes).length ? { $set: changes } : {}),
+      $setOnInsert: { organizationId, email: input.email },
+    },
+    { upsert: true, new: true, runValidators: true },
+  );
+  const list = input.listId
+    ? await List.findOneAndUpdate({ _id: input.listId, organizationId }, { $addToSet: { contactIds: contact._id } }, { new: true })
+    : await List.findOneAndUpdate(
+      { organizationId, name: input.listName },
+      { $setOnInsert: { organizationId, name: input.listName }, $addToSet: { contactIds: contact._id } },
+      { upsert: true, new: true, runValidators: true },
+    );
+  if (!list) throw new ApiError(404, "Audience not found");
+  res.status(201).json({ data: { contact, list: { id: list.id, name: list.name, count: list.contactIds.length } } });
 }));
 
 contactRouter.get("/", asyncHandler(async (req, res) => {
