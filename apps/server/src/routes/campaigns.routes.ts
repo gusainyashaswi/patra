@@ -24,6 +24,7 @@ const createCampaignBody = z.object({
   templateVersionId: objectId,
   senderIdentityId: objectId,
   listId: objectId,
+  allowMissingFields: z.boolean().default(false),
 });
 
 campaignRouter.get("/options", asyncHandler(async (req, res) => {

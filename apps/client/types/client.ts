@@ -22,6 +22,7 @@ export interface Campaign {
   name: string;
   status: string;
   counters: CampaignCounters;
+  allowMissingFields?: boolean;
   [key: string]: unknown;
 }
 
@@ -50,6 +51,7 @@ export interface CampaignForm {
   templateVersionId: string;
   senderIdentityId: string;
   listId: string;
+  allowMissingFields: boolean;
 }
 
 export interface SelectOption {

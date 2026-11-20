@@ -70,7 +70,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
   const [sort, setSort] = useState("active");
   const [wizardStep, setWizardStep] = useState(1);
   const [estimate, setEstimate] = useState<{ result: CampaignEstimate; form?: CampaignForm } | null>(null);
-  const [form, setForm] = useState<CampaignForm>({ name: "", templateVersionId: "", senderIdentityId: "", listId: "" });
+  const [form, setForm] = useState<CampaignForm>({ name: "", templateVersionId: "", senderIdentityId: "", listId: "", allowMissingFields: false });
   const inFlight = useRef(false);
   const { revision, connected } = useCampaignStream(workspace, create ? null : id);
   const live = useRef(false);
@@ -122,7 +122,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
   }, [workspace, id, create, query, revision, loadOptions]);
 
   useEffect(() => {
-    if (!create || !Object.values(form).every(value => value.trim())) return;
+    if (!create || !form.name.trim() || !form.templateVersionId || !form.senderIdentityId || !form.listId) return;
     let active = true;
     const timer = setTimeout(() => {
       workspaceRequest(workspace, "/campaigns/estimate", { method: "POST", body: form }).then(
@@ -147,7 +147,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
 
   async function save(event?: React.FormEvent<HTMLFormElement>) {
     if (event) event.preventDefault();
-    if (inFlight.current || !Object.values(form).every(value => value.trim())) return;
+    if (inFlight.current || !form.name.trim() || !form.templateVersionId || !form.senderIdentityId || !form.listId) return;
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -187,7 +187,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
 
   const currentEstimate = create ? estimate?.form === form ? estimate.result : null : estimate?.result;
   const campaignReady = Boolean(options?.versions.length && options.senders.length && options.lists.length);
-  const formComplete = Object.values(form).every(value => value.trim());
+  const formComplete = Boolean(form.name.trim() && form.templateVersionId && form.senderIdentityId && form.listId);
 
   const selectedTemplate = options?.versions.find(v => v.id === form.templateVersionId);
   const selectedSender = options?.senders.find(s => s.id === form.senderIdentityId);
@@ -468,6 +468,19 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
                     </Select>
                   </Field>
 
+                  <label className="flex items-start gap-3 border border-line bg-surface p-4 text-sm cursor-pointer">
+                    <input
+                      className="mt-1 h-4 w-4 accent-accent"
+                      type="checkbox"
+                      checked={form.allowMissingFields}
+                      onChange={(event: any) => setForm({ ...form, allowMissingFields: event.target.checked })}
+                    />
+                    <span>
+                      <span className="font-semibold">Send even when merge fields are missing</span>
+                      <span className="mt-1 block text-muted">Missing values such as department will appear blank. Unsubscribed, bounced, and complained addresses remain excluded.</span>
+                    </span>
+                  </label>
+
                   {/* Real-Time Pre-Send Estimate Card */}
                   {currentEstimate && (
                     <div className="border-2 border-line bg-panel p-5">
@@ -479,7 +492,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
                           {currentEstimate.eligible} Eligible Recipients
                         </span>
                       </div>
-                      <Estimate value={currentEstimate} />
+                      <Estimate value={currentEstimate} allowMissingFields={form.allowMissingFields} />
                       {currentEstimate.suppressed > 0 && (
                         <p className="mt-3 text-[12px] text-muted">
                           ℹ️ {currentEstimate.suppressed} addresses are automatically suppressed due to previous unsubscribes or hard bounces.
@@ -487,7 +500,9 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
                       )}
                       {currentEstimate.missing > 0 && (
                         <p className="mt-1 text-[12px] text-warning">
-                          ⚠️ {currentEstimate.missing} contacts are missing template variables and will be skipped to protect email quality.
+                          {form.allowMissingFields
+                            ? `⚠️ ${currentEstimate.missing} contacts have missing fields; those values will be blank in their emails.`
+                            : `⚠️ ${currentEstimate.missing} contacts are missing template variables and will be skipped.`}
                         </p>
                       )}
                       {currentEstimate.eligible > 0 && (
@@ -645,7 +660,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
             open={confirm}
             onClose={() => { if (!busy) setConfirm(false); }}
             title="Queue campaign for transmission?"
-            description="Once queued, emails will be handed off to the BullMQ background delivery queue. Please verify your estimate before continuing."
+            description={`Once queued, emails will be handed off to the BullMQ background delivery queue. Please verify your estimate before continuing.${(data as Campaign).allowMissingFields ? " Missing merge-field values will be blank." : ""}`}
             footer={
               <>
                 <Button variant="secondary" disabled={busy} onClick={() => setConfirm(false)}>
@@ -664,7 +679,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
             <div className="space-y-4">
               {currentEstimate && (
                 <div className="border border-line bg-surface-2/40 p-4">
-                  <Estimate value={currentEstimate} />
+                  <Estimate value={currentEstimate} allowMissingFields={(data as Campaign).allowMissingFields} />
                 </div>
               )}
               <div className="space-y-2 border-t border-line pt-3 text-[13px] text-muted">
@@ -674,7 +689,9 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
                 </p>
                 <p className="flex items-center gap-2">
                   <Icon.CheckCircle size={15} className="text-success shrink-0" />
-                  Suppressed and missing-variable contacts will be safely bypassed.
+                  {(data as Campaign).allowMissingFields
+                    ? "Suppressed contacts remain excluded; missing merge-field values will be blank."
+                    : "Suppressed and missing-variable contacts will be safely bypassed."}
                 </p>
               </div>
 
@@ -755,13 +772,13 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
   );
 }
 
-function Estimate({ value }: { value: CampaignEstimate }) {
+function Estimate({ value, allowMissingFields = false }: { value: CampaignEstimate; allowMissingFields?: boolean }) {
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {[
         [value.total, "Audience total", "text-fg"],
         [value.suppressed, "Suppressed", "text-danger"],
-        [value.missing, "Missing fields", "text-warning"],
+        [value.missing, allowMissingFields ? "Missing fields (sent blank)" : "Missing fields", "text-warning"],
         [value.eligible, "Ready to send", "text-success font-bold"],
       ].map(([count, label, colorCls]) => (
         <div key={label} className="border border-line/60 bg-surface p-3">

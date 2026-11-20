@@ -81,9 +81,9 @@ export async function startSend(
       mergeData: contactData,
       senderSnapshot: { displayName: senderIdentity.displayName, fromEmail: senderIdentity.fromEmail, replyTo: senderIdentity.replyTo },
       email: c.email.toLowerCase().trim(),
-      status: missingVariables.length > 0 ? ("SKIPPED" as const) : ("QUEUED" as const),
+      status: missingVariables.length > 0 && !existingCampaign.allowMissingFields ? ("SKIPPED" as const) : ("QUEUED" as const),
       error:
-        missingVariables.length > 0
+        missingVariables.length > 0 && !existingCampaign.allowMissingFields
           ? `Missing required variables: ${missingVariables.join(", ")}`
           : undefined,
     };

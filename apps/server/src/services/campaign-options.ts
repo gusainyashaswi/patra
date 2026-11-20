@@ -19,7 +19,7 @@ export async function validateCampaignLinks(organizationId: string, input: { tem
   return { version, sender, list };
 }
 
-export async function estimateCampaign(organizationId: string, input: { templateVersionId: string; senderIdentityId: string; listId: string }) {
+export async function estimateCampaign(organizationId: string, input: { templateVersionId: string; senderIdentityId: string; listId: string; allowMissingFields?: boolean }) {
   const { version, list } = await validateCampaignLinks(organizationId, input);
   const contacts = await Contact.find({ organizationId, _id: { $in: list.contactIds } });
   const blocked = new Set(await Suppression.distinct("email", { organizationId, email: { $in: contacts.map(c => c.email) } }));
@@ -29,5 +29,5 @@ export async function estimateCampaign(organizationId: string, input: { template
     if (blocked.has(contact.email)) { suppressed++; continue; }
     if (missingMergeFields(version.variables, contactMergeData(contact)).length) missing++;
   }
-  return { total: contacts.length, suppressed, missing, eligible: contacts.length - suppressed - missing };
+  return { total: contacts.length, suppressed, missing, eligible: contacts.length - suppressed - (input.allowMissingFields ? 0 : missing) };
 }

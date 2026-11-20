@@ -25,6 +25,7 @@ export interface RenderParams {
   data: Record<string, unknown>;
   organizationId: string;
   email: string;
+  allowMissingVariables?: boolean;
 }
 
 export type RenderResult =
@@ -95,7 +96,7 @@ export function renderEmail(params: RenderParams): RenderResult {
   // Check required variables
   const missing = missingMergeFields(variables, data);
 
-  if (missing.length > 0) {
+  if (missing.length > 0 && !params.allowMissingVariables) {
     return {
       success: false,
       error: `Missing required variables: ${missing.join(", ")}`,
@@ -106,13 +107,13 @@ export function renderEmail(params: RenderParams): RenderResult {
   const interpolateText = (template: string) =>
     template.replace(variableTokenRegex, (match, key) => {
       const val = data[key];
-      return val !== undefined && val !== null ? String(val) : match;
+      return val !== undefined && val !== null ? String(val) : params.allowMissingVariables ? "" : match;
     });
 
   const interpolateHtml = (template: string) =>
     template.replace(variableTokenRegex, (match, key) => {
       const val = data[key];
-      return val !== undefined && val !== null ? escapeHtml(String(val)) : match;
+      return val !== undefined && val !== null ? escapeHtml(String(val)) : params.allowMissingVariables ? "" : match;
     });
 
   const renderedSubject = interpolateText(subject);

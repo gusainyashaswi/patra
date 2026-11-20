@@ -145,6 +145,7 @@ export async function sendEmailProcessor(
     data: contactData,
     organizationId: organizationId.toString(),
     email: recipient.email,
+    allowMissingVariables: campaign.allowMissingFields === true,
   });
 
   if (!renderResult.success) {

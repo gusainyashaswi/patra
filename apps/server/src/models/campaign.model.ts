@@ -25,6 +25,7 @@ export interface ICampaign {
   templateVersionId: Types.ObjectId;
   senderIdentityId: Types.ObjectId;
   listId: Types.ObjectId;
+  allowMissingFields?: boolean;
   createdById?: Types.ObjectId;
   scheduledAt?: Date;
   startedAt?: Date;
@@ -42,6 +43,7 @@ const campaignSchema = new Schema<ICampaign>(
     templateVersionId: { type: Schema.Types.ObjectId, ref: "TemplateVersion", required: true },
     senderIdentityId: { type: Schema.Types.ObjectId, ref: "SenderIdentity", required: true },
     listId: { type: Schema.Types.ObjectId, ref: "List", required: true },
+    allowMissingFields: { type: Boolean, default: false },
     createdById: { type: Schema.Types.ObjectId, ref: "User" },
     scheduledAt: Date,
     startedAt: Date,

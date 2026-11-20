@@ -757,7 +757,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
               ))}
             </ul>
             <p className="mt-3 text-[13px] leading-relaxed text-subtle">
-              Use a CSV column as a merge field, for example {"{{department}}"}. Every field used in the email is required; recipients missing a value are skipped.
+              Use a CSV column as a merge field, for example {"{{department}}"}. Campaigns skip contacts missing a value by default; the campaign setup can send those values as blank instead.
             </p>
             {fieldError && <p role="alert" className="mt-2 text-sm text-danger">Could not load audience fields: {fieldError}</p>}
           </PanelSection>
