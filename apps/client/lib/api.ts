@@ -31,6 +31,7 @@ const demoCampaignList = [
   demoCampaigns.find((campaign) => campaign.status === "SENDING"),
   demoCampaigns.find((campaign) => campaign.status === "COMPLETED"),
 ].filter((campaign): campaign is typeof demoCampaigns[number] => Boolean(campaign));
+const demoCreatedCampaigns: typeof demoCampaigns = [];
 const demoStartedAt = Date.now();
 const demoCampaignState = new Map<string, { status?: string; counters?: typeof demoCampaigns[number]["counters"] }>();
 function currentDemoCampaign(campaign: typeof demoCampaigns[number]) {
@@ -43,6 +44,36 @@ function currentDemoCampaign(campaign: typeof demoCampaigns[number]) {
     sentCount: campaign.counters.sentCount + progressed,
     deliveredCount: campaign.counters.deliveredCount + Math.floor(progressed * 0.75),
   }, status };
+}
+
+function demoCampaignsForList() {
+  return [...demoCreatedCampaigns, ...demoCampaignList].map(currentDemoCampaign);
+}
+
+function demoCampaignInput(body: ApiOptions["body"]) {
+  return typeof body === "object" && body !== null && !(body instanceof Blob) ? body : {};
+}
+
+function createDemoCampaign(body: ApiOptions["body"]) {
+  const input = demoCampaignInput(body);
+  const templateVersionId = typeof input.templateVersionId === "string" ? input.templateVersionId : "";
+  const senderIdentityId = typeof input.senderIdentityId === "string" ? input.senderIdentityId : senders[0].id;
+  const listId = typeof input.listId === "string" ? input.listId : lists[0].id;
+  const audience = lists.find((list) => list.id === listId) ?? lists[0];
+  const selectedTemplate = templates.find((template) => template.id === templateVersionId.split(":")[0]) ?? templates[0];
+  const campaign = {
+    id: `cp_demo_${demoCampaigns.length + demoCreatedCampaigns.length + 1}`,
+    name: typeof input.name === "string" && input.name.trim() ? input.name.trim() : "Untitled campaign",
+    status: "DRAFT",
+    templateId: selectedTemplate.id,
+    templateVersion: selectedTemplate.latestVersion,
+    senderId: senderIdentityId,
+    listId: audience.id,
+    createdAt: new Date().toISOString(),
+    counters: { totalRecipients: audience.count, sentCount: 0, deliveredCount: 0, bouncedCount: 0, failedCount: 0 },
+  };
+  demoCreatedCampaigns.unshift(campaign);
+  return campaign;
 }
 export function clearDemoSession() {
   document.cookie = "patra-demo=; Max-Age=0; Path=/; SameSite=Lax";
@@ -58,7 +89,7 @@ const demoOverview = (period: string) => {
   const sample = samples[period as keyof typeof samples] ?? samples["30d"];
   return { period, stats: { sent: sample.sent, delivered: sample.delivered, bounced: sample.bounced, failed: sample.failed, opened: sample.opened, pending: sample.pending }, series: { days: sample.days, delivered: sample.deliveredSeries, bounced: sample.bouncedSeries, failed: sample.failedSeries }, campaigns: demoCampaigns, setup: [], alerts: [] };
 };
-function demoData(path: string, method: string): unknown | undefined {
+function demoData(path: string, method: string, body?: ApiOptions["body"]): unknown | undefined {
   const [pathname, query] = path.split("?");
   if (pathname === "/auth/me") return me;
   if (pathname === "/orgs") return [org];
@@ -75,10 +106,16 @@ function demoData(path: string, method: string): unknown | undefined {
       lists,
     };
   }
-  if (resource === "/campaigns") return method === "GET" ? demoCampaignList.map(currentDemoCampaign) : currentDemoCampaign(demoCampaigns[0]);
+  if (resource === "/campaigns/estimate" && method === "POST") {
+    const input = demoCampaignInput(body);
+    const audience = lists.find((list) => list.id === input.listId) ?? lists[0];
+    const suppressed = Math.min(9, audience.count);
+    return { total: audience.count, suppressed, missing: 0, eligible: audience.count - suppressed };
+  }
+  if (resource === "/campaigns") return method === "GET" ? demoCampaignsForList() : createDemoCampaign(body);
   const campaign = resource.match(/^\/campaigns\/([^/]+)(?:\/(recipients|pause|resume|send))?$/);
   if (campaign) {
-    const base = demoCampaigns.find((item) => item.id === campaign[1]) ?? demoCampaigns[0];
+    const base = [...demoCreatedCampaigns, ...demoCampaigns].find((item) => item.id === campaign[1]) ?? demoCampaigns[0];
     if (campaign[2] === "pause" && method === "POST") {
       const snapshot = currentDemoCampaign(base);
       demoCampaignState.set(base.id, { status: "PAUSED", counters: snapshot.counters });
@@ -111,7 +148,7 @@ export function api<T>(path: string, options: ApiOptions & { responseType: "blob
 export function api<T>(path: string, options?: ApiOptions): Promise<ApiEnvelope<T>>;
 export async function api<T>(path: string, { method = "GET", body, responseType, signal }: ApiOptions = {}): Promise<ApiEnvelope<T> | Blob | Response> {
   if (inDemoMode()) {
-    const data = demoData(path, method);
+    const data = demoData(path, method, body);
     if (data !== undefined) return { data: data as T };
   }
   const binary = typeof Blob !== "undefined" && body instanceof Blob;

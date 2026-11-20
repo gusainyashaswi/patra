@@ -145,30 +145,31 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
     <>
       <PageHeader title={create ? "New campaign" : id && data && !Array.isArray(data) ? data.name : "Campaigns"}
         back={id || create ? { href: "/campaigns", label: "Campaigns" } : undefined}
-        description={create ? "Choose a published version, verified sender, and saved audience." : undefined}
+        description={create ? "Give it a name, then choose the email, sender, and audience. Saving creates a draft only — nothing is sent yet." : undefined}
         actions={!id && !create ? <Button href={`/campaigns/new?org=${workspace.org.id}`}>New campaign</Button> : undefined} />
       {error && <p role="alert" className="mb-5 text-danger">{error}</p>}
       {create ? options ? (
         <Card className="max-w-2xl p-6">
           <form className="space-y-5" onSubmit={save}>
-            <Field label="Campaign name" htmlFor="campaign-name">
-              <Input id="campaign-name" required maxLength={120} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />
+            <p className="border-b border-line pb-4 text-sm text-muted">Complete these four choices. You can review and send the campaign later.</p>
+            <Field label="1. Campaign name" htmlFor="campaign-name">
+              <Input id="campaign-name" required maxLength={120} placeholder="e.g. Spring registration reminder" value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />
             </Field>
             {[
-              ["templateVersionId", "Published template version", options.versions, item => `${item.subject} · v${item.version}`],
-              ["senderIdentityId", "Sender", options.senders, item => `${item.displayName} <${item.fromEmail}>`],
-              ["listId", "Audience", options.lists, item => item.name],
+              ["templateVersionId", "2. Email template", options.versions, item => `${item.subject} · v${item.version}`],
+              ["senderIdentityId", "3. Sender", options.senders, item => `${item.displayName} <${item.fromEmail}>`],
+              ["listId", "4. Audience", options.lists, item => item.name],
             ].map(([key, label, items, display]) => (
               <Field key={key} label={label} htmlFor={key}>
                 <Select id={key} required value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })}>
-                  <option value="">Choose {label.toLowerCase()}</option>
+                  <option value="">Choose {label.replace(/^\d\. /, "").toLowerCase()}</option>
                   {items.map(item => <option key={item.id} value={item.id}>{display(item)}</option>)}
                 </Select>
-                {!items.length && <p className="mt-2 text-sm text-muted">Add a {label.toLowerCase()} before creating a campaign.</p>}
+                {!items.length && <p className="mt-2 text-sm text-muted">Add a {label.replace(/^\d\. /, "").toLowerCase()} before creating a campaign.</p>}
               </Field>
             ))}
             {currentEstimate && <Estimate value={currentEstimate} />}
-            <Button type="submit" loading={busy}>Save campaign draft</Button>
+            <Button type="submit" loading={busy}>Create draft</Button>
           </form>
         </Card>
       ) : !error && <p role="status">Loading campaign options…</p> : data ? id ? (
