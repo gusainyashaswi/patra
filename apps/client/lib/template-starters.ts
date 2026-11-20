@@ -41,7 +41,7 @@ export const starters: TemplateStarter[] = [
   { id: "newsletter", name: "Newsletter", description: "Send a roundup with a lead story and short updates.", subject: "Campus Notes · November edition", previewText: "A new makerspace, extended library hours, and a call for volunteers.", blocks: [heading("Campus Notes"), paragraph("November edition"), divider, section("A new space to make things"), paragraph("The campus makerspace is open for student projects. Book an induction to start using the equipment."), button("See makerspace details", "makerspace"), divider, section("More time at the library"), paragraph("From 23 November, the library closes at 10 pm on weekdays."), section("Volunteer at the showcase"), paragraph("Help welcome guests and set up student exhibits. Reply if you’d like to join the team.")] },
 ];
 
-export const blankStarter: TemplateStarter = { id: "blank", name: "Untitled template", subject: "", previewText: "", blocks: [] };
+export const blankStarter: TemplateStarter = { id: "blank", name: "Blank template", subject: "", previewText: "", blocks: [] };
 
 export function starterContent(starter: TemplateStarter): StarterContent {
   return {

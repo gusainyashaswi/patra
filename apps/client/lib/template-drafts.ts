@@ -1,4 +1,4 @@
-import { starterContent, type StarterContent, type TemplateStarter } from "./template-starters";
+import { blankStarter, starterContent, starters, type StarterContent, type TemplateStarter } from "./template-starters";
 
 const prefix = "patra-template-draft:";
 const eventName = "patra-template-drafts-change";
@@ -58,4 +58,18 @@ export function createDraft(starter: TemplateStarter): LocalTemplateDraft {
   };
   saveDraft(draft);
   return draft;
+}
+
+export function ensureStarterDrafts(): void {
+  const existing = new Set(readDrafts().map((draft) => draft.id));
+  for (const starter of [blankStarter, ...starters]) {
+    const id = `local-starter-${starter.id}`;
+    if (existing.has(id)) continue;
+    saveDraft({
+      ...starterContent(starter),
+      id,
+      status: "DRAFT",
+      latestVersion: 0,
+    });
+  }
 }

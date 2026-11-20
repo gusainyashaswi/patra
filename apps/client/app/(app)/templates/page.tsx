@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { EmailPaper } from "@/components/EmailRender";
 import { Icon } from "@/components/icons";
 import { Card, EmptyState, PageHeader, SearchInput, StatusBadge, fmt } from "@/components/ui";
-import { readDrafts, subscribeDrafts } from "@/lib/template-drafts";
+import { ensureStarterDrafts, readDrafts, subscribeDrafts } from "@/lib/template-drafts";
 import { templateRequest, useTemplateWorkspace } from "@/lib/template-api";
 import { templates } from "@/lib/mock";
 
@@ -25,7 +25,10 @@ export default function TemplatesPage() {
     return () => { active = false; };
   }, [workspace]);
   useEffect(() => {
-    const refresh = () => setDrafts(readDrafts());
+    const refresh = () => {
+      ensureStarterDrafts();
+      setDrafts(readDrafts());
+    };
     const unsubscribe = subscribeDrafts(refresh);
     queueMicrotask(refresh);
     return unsubscribe;
