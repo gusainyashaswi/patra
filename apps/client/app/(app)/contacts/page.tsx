@@ -143,9 +143,31 @@ function ContactDirectory({ workspace }: { workspace: string | null }) {
     }
   }
 
-  function contactSaved(list) {
-    selectList(list.id);
+  function contactSaved(list?: ContactList) {
+    if (list?.id) selectList(list.id);
     setRefresh((value) => value + 1);
+  }
+
+  function exportCsv() {
+    if (!shown || shown.length === 0) return;
+    const headers = ["Email", "Name", "College", "Status", "Joined"];
+    const rows = shown.map((c: any) => [
+      `"${(c.email || "").replace(/"/g, '""')}"`,
+      `"${(c.name || "").replace(/"/g, '""')}"`,
+      `"${(c.college || c.data?.college || "").replace(/"/g, '""')}"`,
+      `"${c.suppressed ? "Suppressed" : "Active"}"`,
+      `"${c.createdAt || ""}"`,
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((r: string[]) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `patra-contacts-${listId || "all"}-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -154,6 +176,11 @@ function ContactDirectory({ workspace }: { workspace: string | null }) {
         title="Contacts"
         description="Everyone you can send to. Unsubscribed and bounced addresses are suppressed from every campaign automatically."
         actions={<div className="flex flex-wrap gap-2">
+          {shown.length > 0 && (
+            <Button variant="secondary" onClick={exportCsv} title="Export visible contacts to CSV">
+              <Icon.Download size={15} /> Export CSV
+            </Button>
+          )}
           {workspace && <AddContactDialog workspace={workspace} lists={lists} onSaved={contactSaved} />}
           <Button href={workspace ? `/contacts/import?org=${workspace.org.id}` : "/contacts/import"}>
             <Icon.Upload size={15} /> Import contacts
