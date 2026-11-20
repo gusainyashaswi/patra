@@ -28,7 +28,7 @@ import { readDrafts, saveDraft } from "@/lib/template-drafts";
 const palette = [
   { type: "text", label: "Text", icon: Icon.Type, make: () => ({ text: "Write something clear and kind.", size: 15, weight: 400 }) },
   { type: "image", label: "Image", icon: Icon.Image, make: () => ({ src: "", alt: "Describe this image", height: 180 }) },
-  { type: "button", label: "Button", icon: Icon.Button, make: () => ({ label: "Call to action", href: "https://", color: "#1c1917" }) },
+  { type: "button", label: "Button", icon: Icon.Button, make: () => ({ label: "Call to action", href: "https://example.com", color: "#1c1917" }) },
   { type: "divider", label: "Divider", icon: Icon.Divider, make: () => ({}) },
   { type: "spacer", label: "Spacer", icon: Icon.Spacer, make: () => ({ height: 24 }) },
 ];
@@ -38,6 +38,15 @@ const usedVars = (t) =>
   [...new Set([t.subject, t.previewText, ...t.blocks.map((b) => b.text ?? b.label ?? b.alt ?? "")].join(" ").match(/\{\{\s*\w+\s*\}\}/g) ?? [])].map((v) =>
     v.replace(/[{}\s]/g, ""),
   );
+
+function isPublicHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
 
 /* ---------- Side panels ---------- */
 
@@ -170,8 +179,8 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, 
         {block.type === "button" && (
           <>
             <Field label="Label" htmlFor="bk-label"><Input id="bk-label" value={block.label} onChange={(e) => set({ label: e.target.value })} /></Field>
-            <Field label="Link" htmlFor="bk-href" error={!/^https?:\/\/.+\..+/.test(block.href) ? "Enter a full URL, like https://example.com" : null}>
-              <Input id="bk-href" type="url" value={block.href} onChange={(e) => set({ href: e.target.value })} invalid={!/^https?:\/\/.+\..+/.test(block.href)} />
+            <Field label="Link" htmlFor="bk-href" error={!isPublicHttpUrl(block.href) ? "Enter a full HTTP or HTTPS URL, like https://example.com" : null}>
+              <Input id="bk-href" type="url" value={block.href} onChange={(e) => set({ href: e.target.value })} invalid={!isPublicHttpUrl(block.href)} />
             </Field>
             <ColorField id="bk-color" label="Button color" value={block.color ?? "#1c1917"} onChange={(v) => set({ color: v })} />
             <Field label="Alignment"><AlignPicker value={block.align} onChange={(v) => set({ align: v })} /></Field>
@@ -195,6 +204,10 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, 
                 {uploading && <p role="status">Uploading image…</p>}
               </Field>
             ) : <p className="text-sm text-muted">Save to a workspace to upload images.</p>}
+            <Field label="Image URL" htmlFor="bk-src" hint="Use a public HTTP or HTTPS image URL, or upload an image above."
+              error={!isPublicHttpUrl(block.src) ? "Add a public HTTP or HTTPS image URL before publishing." : null}>
+              <Input id="bk-src" type="url" placeholder="https://example.com/image.png" value={block.src} onChange={(e) => set({ src: e.target.value })} invalid={!isPublicHttpUrl(block.src)} />
+            </Field>
             <Field label="Alt text" htmlFor="bk-alt" hint="Shown when images are blocked, and read by screen readers.">
               <Input id="bk-alt" value={block.alt} onChange={(e) => set({ alt: e.target.value })} />
             </Field>
@@ -464,6 +477,10 @@ function TemplateEditor({ source, isLocal, workspace }) {
 
   const vars = usedVars(tpl);
   const variableOptions = [...variables, ...audienceFields.filter(key => !variables.some(v => v.key === key)).map(key => ({ key, required: true }))];
+  const invalidMediaBlocks = tpl.blocks.filter((item) =>
+    (item.type === "button" && !isPublicHttpUrl(item.href)) ||
+    (item.type === "image" && !isPublicHttpUrl(item.src)),
+  );
   const sender = senders.find((s) => s.isDefault);
 
   async function leaveEditor() {
@@ -497,6 +514,10 @@ function TemplateEditor({ source, isLocal, workspace }) {
   }
 
   async function runAction(action) {
+    if (action === "publish" && invalidMediaBlocks.length) {
+      setActionError(`Add a valid URL for ${invalidMediaBlocks.length === 1 ? "the incomplete button or image" : "each incomplete button and image"} before publishing.`);
+      return;
+    }
     setBusy(true);
     setActionError("");
     try {
@@ -795,6 +816,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
             <Button variant="secondary" disabled={busy} onClick={() => setPublishOpen(false)}>Keep editing</Button>
             <Button
               loading={busy}
+              disabled={invalidMediaBlocks.length > 0}
               onClick={() => {
                 if (workspace) { runAction("publish"); return; }
                 setBusy(true);
@@ -814,6 +836,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
         <ul className="flex flex-col gap-2.5 text-[14px]">
           <li className="flex items-center gap-2"><Icon.CheckCircle size={16} className="text-success" /> Subject and {tpl.blocks.length} blocks</li>
           <li className="flex items-center gap-2"><Icon.CheckCircle size={16} className="text-success" /> Plain-text version generated</li>
+          {invalidMediaBlocks.length > 0 && <li role="alert" className="flex items-start gap-2 text-danger"><Icon.Alert size={16} className="mt-0.5 shrink-0" /> {invalidMediaBlocks.length} {invalidMediaBlocks.length === 1 ? "button or image needs" : "buttons or images need"} a valid public HTTP or HTTPS URL. Select the block to fix it, or remove it.</li>}
           {actionError && <li role="alert" className="text-danger">{actionError}</li>}
           <li className="flex items-start gap-2">
             <><Icon.CheckCircle size={16} className="mt-0.5 text-success" /> Required fields: {vars.length ? vars.map((v) => `{{${v}}}`).join(", ") : "none"}. Missing values are skipped at send time.</>
