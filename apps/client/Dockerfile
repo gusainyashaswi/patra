@@ -4,6 +4,8 @@ WORKDIR /app
 
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG PATRA_API_ORIGIN
+ENV PATRA_API_ORIGIN=$PATRA_API_ORIGIN
 
 # Copy lockfile and package manifests
 COPY package.json package-lock.json ./
