@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EmailPaper } from "@/components/EmailRender";
 import { Icon } from "@/components/icons";
 import { Button, Card, EmptyState, PageHeader, SearchInput, Segmented, StatusBadge, fmt } from "@/components/ui";
@@ -45,6 +45,15 @@ export default function TemplatesPage() {
   const blank = rows.find((template) => template.id === "local-starter-blank" || template.name === "Blank template");
   const orderedRows = blank ? [blank, ...rows.filter((template) => template.id !== blank.id)] : rows;
 
+  const counts = useMemo(() => {
+    const allTemplates = [...(remote ?? []), ...drafts, ...(workspace === null ? templates : [])];
+    return {
+      all: allTemplates.length,
+      published: allTemplates.filter((t: any) => t.status === "PUBLISHED").length,
+      drafts: allTemplates.filter((t: any) => t.status !== "PUBLISHED").length,
+    };
+  }, [remote, drafts, workspace]);
+
   return (
     <>
       <PageHeader
@@ -61,9 +70,9 @@ export default function TemplatesPage() {
           value={view}
           onChange={setView}
           options={[
-            { value: "all", label: "All" },
-            { value: "published", label: "Published" },
-            { value: "drafts", label: "Drafts" },
+            { value: "all", label: `All (${counts.all})` },
+            { value: "published", label: `Published (${counts.published})` },
+            { value: "drafts", label: `Drafts (${counts.drafts})` },
           ]}
         />
         <SearchInput className="w-full sm:w-64" placeholder="Search templates" value={q} onChange={(e) => setQ(e.target.value)} />
