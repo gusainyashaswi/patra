@@ -5,7 +5,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { AuthLayout } from "@/components/AuthLayout";
 import { Icon } from "@/components/icons";
-import { Button, Field, Input } from "@/components/ui";
+import { Field, Input } from "@/components/ui";
 import { api, clearDemoSession } from "@/lib/api";
 
 export default function LoginPage() {
@@ -22,13 +22,13 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const next = {};
+    const next: Record<string, string> = {};
     if (!email.includes("@")) next.email = "Enter the email you signed up with";
     if (!password) next.password = "Enter your password";
     setErrors(next);
@@ -42,37 +42,43 @@ function LoginForm() {
       localStorage.removeItem("patra-token");
       const nextPath = searchParams.get("next");
       router.replace(nextPath?.startsWith("/") ? nextPath : "/dashboard");
-    } catch (err) {
-      setFormError(err.status === 401 ? "That email and password don't match." : err.message);
+    } catch (err: unknown) {
+      const status = typeof err === "object" && err !== null && "status" in err ? (err as { status: number }).status : undefined;
+      const message = err instanceof Error ? err.message : "Authentication failed.";
+      setFormError(status === 401 ? "That email and password do not match." : message);
       setLoading(false);
     }
   }
 
   return (
     <AuthLayout>
-      <h1 className="text-[32px] font-semibold tracking-[-0.025em]">Welcome back</h1>
-      <p className="mt-1.5 text-[16px] text-muted">Log in to manage your transports, templates and campaigns.</p>
+      <div className="border-l-[3px] border-line-strong pl-4 mb-2">
+        <h1 className="display text-[36px] sm:text-[42px] font-bold tracking-tight text-fg">Welcome back</h1>
+        <p className="mt-1.5 text-[15px] text-muted">Log in to orchestrate your mail infrastructure.</p>
+      </div>
 
       {formError && (
-        <div role="alert" className="mt-6 flex items-start gap-2 rounded-lg bg-danger-soft px-3.5 py-3 text-[14px] text-danger">
-          <Icon.Alert size={15} className="mt-0.5 shrink-0" />
-          {formError}
+        <div role="alert" className="mt-5 flex items-start gap-2.5 border border-danger bg-danger-soft px-4 py-3 text-[14px] text-danger">
+          <Icon.Alert size={16} className="mt-0.5 shrink-0" />
+          <span>{formError}</span>
         </div>
       )}
 
-      <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-6">
-        <Field label="Email" htmlFor="email" error={errors.email}>
+      <form onSubmit={onSubmit} noValidate className="mt-6 flex flex-col gap-5">
+        <Field label="Work Email" htmlFor="email" error={errors.email}>
           <Input
             id="email"
             type="email"
             autoComplete="email"
             autoFocus
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             invalid={!!errors.email}
             placeholder="you@company.com"
+            className="focus:bg-white"
           />
         </Field>
+
         <Field label="Password" htmlFor="password" error={errors.password}>
           <div className="relative">
             <Input
@@ -80,35 +86,62 @@ function LoginForm() {
               type={show ? "text" : "password"}
               autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               invalid={!!errors.password}
-              className="pr-16"
+              placeholder="••••••••••••"
+              className="pr-20 focus:bg-white"
             />
             <button
               type="button"
               onClick={() => setShow((s) => !s)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[14px] font-medium text-muted hover:text-fg cursor-pointer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 border border-line bg-surface-2 px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-muted hover:text-fg hover:border-line-strong cursor-pointer transition-colors"
               aria-pressed={show}
             >
               {show ? "Hide" : "Show"}
             </button>
           </div>
         </Field>
-        <Button type="submit" size="lg" loading={loading} className="mt-2 w-full">
-          {loading ? "Logging in…" : "Log in"}
-        </Button>
+
+        {/* Special tactile high-precision login button */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="group relative mt-2 flex h-12 w-full items-center justify-center gap-3 border-2 border-primary bg-primary px-6 font-mono text-[13px] font-bold uppercase tracking-[0.14em] text-on-primary shadow-[4px_4px_0_0_var(--border-strong)] transition-all duration-150 hover:bg-primary-hover hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--border-strong)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:pointer-events-none disabled:opacity-60 cursor-pointer"
+        >
+          {loading ? (
+            <>
+              <Icon.Loader size={16} className="animate-spin text-on-primary" />
+              <span>Authenticating…</span>
+            </>
+          ) : (
+            <>
+              <span>Log in to console</span>
+              <span className="transition-transform duration-200 group-hover:translate-x-1.5" aria-hidden="true">
+                →
+              </span>
+            </>
+          )}
+        </button>
       </form>
 
-      <p className="mt-6 text-center text-[14px] text-subtle">
-        New to Patra?{" "}
-        <Link href="/signup" className="font-medium text-fg underline underline-offset-4">Create an account</Link>
-      </p>
-      <p className="mt-3 text-center text-[14px] text-subtle">
-        Just exploring?{" "}
-        <a href="/dashboard?demo=1" className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg">
-          Open the demo workspace
-        </a>
-      </p>
+      <div className="mt-8 space-y-4 border-t border-line pt-6 text-center text-[14px]">
+        <p className="text-subtle">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="font-mono font-bold uppercase tracking-wider text-fg underline underline-offset-4 hover:opacity-80">
+            Create an account
+          </Link>
+        </p>
+
+        <div className="pt-1">
+          <a
+            href="/dashboard?demo=1"
+            className="inline-flex items-center gap-1.5 border border-line bg-surface px-3.5 py-2 font-mono text-[12px] font-bold uppercase tracking-wider text-accent hover:border-line-strong hover:bg-fg/5 transition-colors"
+          >
+            <span>Just exploring? Open demo workspace</span>
+            <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
     </AuthLayout>
   );
 }
