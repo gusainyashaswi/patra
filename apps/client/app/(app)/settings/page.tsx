@@ -38,15 +38,17 @@ function Row({ icon, title, meta, right, children }) {
   );
 }
 
-function TransportForm({ create, toast }) {
+function TransportForm({ create, toast }: { create: (payload: any) => Promise<any>; toast: (msg: string) => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_TRANSPORT);
+  const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const close = () => {
     if (saving) return;
     setOpen(false);
     setForm(EMPTY_TRANSPORT);
+    setShowKey(false);
     setError("");
   };
 
@@ -77,7 +79,26 @@ function TransportForm({ create, toast }) {
             <Input id="tr-name" required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
           </Field>
           <Field label="API key" htmlFor="tr-key" hint="Encrypted before storage. Sending-only keys work for own-inbox sandbox tests; domain sync requires domain-read access.">
-            <Input id="tr-key" type="password" autoComplete="off" required pattern="re_.+" value={form.key} onChange={(event) => setForm({ ...form, key: event.target.value })} />
+            <div className="relative">
+              <Input
+                id="tr-key"
+                type={showKey ? "text" : "password"}
+                autoComplete="off"
+                required
+                pattern="re_.+"
+                value={form.key}
+                onChange={(event: any) => setForm({ ...form, key: event.target.value })}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-fg cursor-pointer"
+                title={showKey ? "Hide key" : "Show key"}
+              >
+                <Icon.Eye size={16} />
+              </button>
+            </div>
           </Field>
           <Field label="Emails per second" htmlFor="tr-rate" hint="Match your provider’s sending limit.">
             <Input id="tr-rate" type="number" min="1" max="100" required value={form.ratePerSecond ?? 2} onChange={event => setForm({ ...form, ratePerSecond: event.target.value })} />
