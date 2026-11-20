@@ -1,0 +1,15 @@
+{
+  "generator": "Sitepeel 1.1.0",
+  "title": "Custom Ecommerce, SaaS, AI Agents and Websites · Nualt",
+  "source": "https://nualt.fr/en",
+  "viewport": {
+    "width": 2208,
+    "height": 1392
+  },
+  "elementCount": 3435,
+  "notes": [
+    "Scripts, frames, form values, editable text, data attributes and credential URL parameters are excluded. Review visible page text before sharing."
+  ],
+  "assetsIncluded": true,
+  "unavailableAssets": []
+}
