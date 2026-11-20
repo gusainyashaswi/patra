@@ -48,13 +48,23 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
     async function load() {
       try {
         if (create) {
-          const result = await workspaceRequest<CampaignOptions>(workspace, "/campaigns/options");
+          const response = await workspaceRequest<CampaignOptions>(workspace, "/campaigns/options");
+          const result = {
+            versions: Array.isArray(response.versions) ? response.versions : [],
+            senders: Array.isArray(response.senders) ? response.senders : [],
+            lists: Array.isArray(response.lists) ? response.lists : [],
+          };
           if (active) {
-            setOptions({
-              versions: Array.isArray(result.versions) ? result.versions : [],
-              senders: Array.isArray(result.senders) ? result.senders : [],
-              lists: Array.isArray(result.lists) ? result.lists : [],
-            });
+            setOptions(result);
+            const params = new URLSearchParams(location.search);
+            const version = result.versions.find(item => item.id === params.get("templateVersionId"))
+              ?? result.versions.find(item => item.templateId === params.get("templateId"));
+            const list = result.lists.find(item => item.id === params.get("listId"));
+            setForm(current => ({ ...current,
+              templateVersionId: version?.id ?? current.templateVersionId,
+              listId: list?.id ?? current.listId,
+              senderIdentityId: result.senders.length === 1 ? result.senders[0].id : current.senderIdentityId,
+            }));
           }
         } else {
           const [campaign, rows] = await Promise.all([
@@ -76,7 +86,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
     let active = true;
     const timer = setTimeout(() => {
       workspaceRequest(workspace, "/campaigns/estimate", { method: "POST", body: form }).then(
-        (result: CampaignEstimate) => { if (active) setEstimate({ result, form }); },
+        (result: CampaignEstimate) => { if (active) { setEstimate({ result, form }); setError(""); } },
         (error: Error) => { if (active) { setEstimate(null); setError(error.message); } },
       );
     }, 250);
@@ -150,6 +160,12 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
       {error && <p role="alert" className="mb-5 text-danger">{error}</p>}
       {create ? options ? (
         <Card className="max-w-2xl p-6">
+          {(!options.versions.length || !options.senders.length || !options.lists.length) && <div role="status" className="mb-6 rounded-lg border border-line p-4 text-sm">
+            <p className="font-semibold">Finish setup before sending</p>
+            {!options.versions.length && <p className="mt-2"><Link className="underline" href={`/templates?org=${workspace.org.id}`}>Create and publish a template</Link>.</p>}
+            {!options.senders.length && <p className="mt-2"><Link className="underline" href="/settings?tab=senders">Connect Resend and add a sender on a verified domain</Link>. Sandbox tests only send to your own inbox; they cannot send an audience campaign.</p>}
+            {!options.lists.length && <p className="mt-2"><Link className="underline" href={`/contacts/import?org=${workspace.org.id}`}>Import a CSV or Excel audience</Link>.</p>}
+          </div>}
           <form className="space-y-5" onSubmit={save}>
             <p className="border-b border-line pb-4 text-sm text-muted">Complete these four choices. You can review and send the campaign later.</p>
             <Field label="1. Campaign name" htmlFor="campaign-name">
@@ -169,7 +185,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
               </Field>
             ))}
             {currentEstimate && <Estimate value={currentEstimate} />}
-            <Button type="submit" loading={busy}>Create draft</Button>
+            <Button type="submit" loading={busy} disabled={!options.versions.length || !options.senders.length || !options.lists.length}>Create draft</Button>
           </form>
         </Card>
       ) : !error && <p role="status">Loading campaign options…</p> : data ? id ? (

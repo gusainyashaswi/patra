@@ -120,6 +120,8 @@ export default function ImportPage() {
             <p className="mt-2 text-sm text-muted">{fmt.n(result.added)} new · {fmt.n(result.updated)} existing updated</p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               <Button href={`/contacts?list=${result.list.id}&org=${workspace.org.id}`}>View audience</Button>
+              <Button variant="secondary" href={`/templates?org=${workspace.org.id}&listId=${result.list.id}`}>Choose an email template</Button>
+              <Button variant="secondary" href={`/campaigns/new?org=${workspace.org.id}&listId=${result.list.id}`}>Create campaign</Button>
               {issueCount > 0 && <Button variant="secondary" loading={busy === "download"} disabled={!!busy} onClick={downloadIssues}>Download skipped rows</Button>}
             </div>
           </Card>

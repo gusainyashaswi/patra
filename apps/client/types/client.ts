@@ -57,6 +57,7 @@ export interface SelectOption {
   name?: string;
   subject?: string;
   version?: number;
+  templateId?: string;
   displayName?: string;
   fromEmail?: string;
 }

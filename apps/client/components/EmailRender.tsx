@@ -11,7 +11,7 @@ export function MergeText({ text, preview }) {
   return parts.map((p, i) => {
     const m = p.match(/^\{\{\s*(\w+)\s*\}\}$/);
     if (!m) return <span key={i}>{p}</span>;
-    if (preview) return <span key={i}>{sampleData[m[1]] ?? ""}</span>;
+    if (preview) return <span key={i}>{Object.hasOwn(sampleData, m[1]) ? sampleData[m[1]] : `[Sample ${m[1]}]`}</span>;
     return (
       <span key={i} className="mx-px rounded bg-[#fff1e8] px-1 font-mono text-[0.85em] text-[#f05a35] ring-1 ring-[#fed7c3]">
         {m[1]}
@@ -94,8 +94,7 @@ export function EmailPaper({ template, preview = true, width, className, childre
             template.blocks.map((b) => <BlockView key={b.id} block={b} page={page} preview={preview} />)}
         </div>
         <p className="px-8 py-5 text-center" style={{ fontSize: 11.5, color: "#a8a29e" }}>
-          {template.footerText ?? "You’re receiving this because you registered for Rishihood Fest."}{" "}
-          <span style={{ textDecoration: "underline" }}>Unsubscribe</span>
+          Unsubscribe links are added automatically when sending a campaign.
         </p>
       </div>
     </div>

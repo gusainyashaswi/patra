@@ -15,6 +15,11 @@ export default function TemplatesPage() {
   const { workspace, error: workspaceError } = useTemplateWorkspace();
   const [remote, setRemote] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [selectedList, setSelectedList] = useState("");
+  useEffect(() => {
+    const listId = new URLSearchParams(location.search).get("listId") ?? "";
+    queueMicrotask(() => setSelectedList(listId));
+  }, []);
   useEffect(() => {
     if (!workspace) return;
     let active = true;
@@ -57,7 +62,7 @@ export default function TemplatesPage() {
           {rows.map((t) => (
             <Link
               key={t.id}
-              href={`/templates/${t.id}${t.revision ? `?org=${workspace.org.id}` : ""}`}
+              href={`/templates/${t.id}${t.revision ? `?org=${workspace.org.id}${selectedList ? `&listId=${encodeURIComponent(selectedList)}` : ""}` : ""}`}
               className="group overflow-hidden border-2 border-line bg-surface transition-[border-color,transform] duration-200 hover:-translate-y-1 hover:border-line-strong cursor-pointer"
             >
               {/* Live thumbnail: the real renderer, scaled, not a screenshot */}

@@ -53,7 +53,8 @@ export default function TemplatePicker({ onClose, workspace }) {
         : createDraft(starter);
       if (workspace) {
         onClose();
-        router.push(`/templates/${draft.id}?org=${workspace.org.id}`);
+        const listId = new URLSearchParams(location.search).get("listId");
+        router.push(`/templates/${draft.id}?org=${workspace.org.id}${listId ? `&listId=${encodeURIComponent(listId)}` : ""}`);
         return;
       }
       onClose();

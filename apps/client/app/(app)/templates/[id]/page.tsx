@@ -35,7 +35,7 @@ const palette = [
 
 const newId = () => crypto.randomUUID();
 const usedVars = (t) =>
-  [...new Set([t.subject, ...t.blocks.map((b) => b.text ?? b.label ?? "")].join(" ").match(/\{\{\s*\w+\s*\}\}/g) ?? [])].map((v) =>
+  [...new Set([t.subject, t.previewText, ...t.blocks.map((b) => b.text ?? b.label ?? b.alt ?? "")].join(" ").match(/\{\{\s*\w+\s*\}\}/g) ?? [])].map((v) =>
     v.replace(/[{}\s]/g, ""),
   );
 
@@ -86,7 +86,7 @@ function ColorField({ label, value, onChange, id }) {
   );
 }
 
-function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload }) {
+function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload, variableOptions = variables }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   if (!block) {
@@ -136,7 +136,7 @@ function Properties({ block, page, onBlock, onPage, insertVar, textRef, upload }
               <Textarea id="bk-text" ref={textRef} value={block.text} onChange={(e) => set({ text: e.target.value })} rows={5} />
             </Field>
             <div className="flex flex-wrap gap-1.5">
-              {variables.map((v) => (
+              {variableOptions.map((v) => (
                 <button
                   key={v.key}
                   onClick={() => insertVar(v.key)}
@@ -283,6 +283,9 @@ function TemplateEditor({ source, isLocal, workspace }) {
   const [senderId, setSenderId] = useState("");
   const [testMode, setTestMode] = useState("verified");
   const [testTransportId, setTestTransportId] = useState("");
+  const [audienceFields, setAudienceFields] = useState([]);
+  const [fieldError, setFieldError] = useState("");
+  const [campaignAudience, setCampaignAudience] = useState("");
   const testRequest = useRef(null);
   const saved = useRef({ snapshot: source, revision: source.revision });
   const pendingSave = useRef(Promise.resolve());
@@ -298,6 +301,17 @@ function TemplateEditor({ source, isLocal, workspace }) {
   const [toast, setToast] = useState("");
   const [dirtySincePublish, setDirtySincePublish] = useState(source.status === "DRAFT");
   const textRef = useRef(null);
+
+  useEffect(() => {
+    if (!workspace) return;
+    queueMicrotask(() => setCampaignAudience(new URLSearchParams(location.search).get("listId") ?? ""));
+    let active = true;
+    templateRequest(workspace, "/contacts/fields").then(
+      fields => { if (active) { setAudienceFields(fields); setFieldError(""); } },
+      error => { if (active) setFieldError(error.message); },
+    );
+    return () => { active = false; };
+  }, [workspace]);
 
   const saveWorkspaceDraft = useCallback((snapshot) => {
     const task = pendingSave.current.then(async () => {
@@ -449,7 +463,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
   }, [selected, isLocal, workspace, saveWorkspaceDraft, tpl]);
 
   const vars = usedVars(tpl);
-  const missingDefs = vars.filter((v) => !variables.some((x) => x.key === v));
+  const variableOptions = [...variables, ...audienceFields.filter(key => !variables.some(v => v.key === key)).map(key => ({ key, required: true }))];
   const sender = senders.find((s) => s.isDefault);
 
   async function leaveEditor() {
@@ -582,7 +596,8 @@ function TemplateEditor({ source, isLocal, workspace }) {
           </Button>
           <Button size="sm" onClick={() => { setActionError(""); setPublishOpen(true); }} disabled={!dirtySincePublish}>
             {dirtySincePublish ? "Publish" : version ? `Published v${version}` : "Published"}
-          </Button></>}
+          </Button>
+          {workspace && version > 0 && !dirtySincePublish && <Button size="sm" variant="secondary" href={`/campaigns/new?org=${workspace.org.id}&templateId=${source.id}${campaignAudience ? `&listId=${encodeURIComponent(campaignAudience)}` : ""}`}>Create campaign</Button>}</>}
         </div>
       </header>
 
@@ -606,16 +621,17 @@ function TemplateEditor({ source, isLocal, workspace }) {
           </PanelSection>
           <PanelSection title="Variables" action={<Icon.Braces size={14} className="text-subtle" />}>
             <ul className="flex flex-col gap-1.5">
-              {variables.map((v) => (
+              {variableOptions.map((v) => (
                 <li key={v.key} className="flex items-center justify-between text-[14px]">
                   <code className="rounded bg-surface-2 px-1.5 py-0.5 text-[13px]">{`{{${v.key}}}`}</code>
-                  {v.required ? <Badge tone="warning">Required</Badge> : <span className="text-subtle">Optional</span>}
+                  {vars.includes(v.key) ? <Badge tone="warning">Required</Badge> : <span className="text-subtle">Available</span>}
                 </li>
               ))}
             </ul>
             <p className="mt-3 text-[13px] leading-relaxed text-subtle">
-              Recipients missing a required value are skipped, never sent a blank.
+              Use a CSV column as a merge field, for example {"{{department}}"}. Every field used in the email is required; recipients missing a value are skipped.
             </p>
+            {fieldError && <p role="alert" className="mt-2 text-sm text-danger">Could not load audience fields: {fieldError}</p>}
           </PanelSection>
           <div className="px-4 py-4 text-[13px] text-subtle">
             <div className="mb-2 font-medium text-muted">Shortcuts</div>
@@ -756,6 +772,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
             page={tpl.page}
             textRef={textRef}
             insertVar={insertVar}
+            variableOptions={variableOptions}
             onBlock={(bid, patch) =>
               update((t) => {
                 const target = t.blocks.find((b) => b.id === bid);
@@ -778,7 +795,6 @@ function TemplateEditor({ source, isLocal, workspace }) {
             <Button variant="secondary" disabled={busy} onClick={() => setPublishOpen(false)}>Keep editing</Button>
             <Button
               loading={busy}
-              disabled={missingDefs.length > 0}
               onClick={() => {
                 if (workspace) { runAction("publish"); return; }
                 setBusy(true);
@@ -800,11 +816,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
           <li className="flex items-center gap-2"><Icon.CheckCircle size={16} className="text-success" /> Plain-text version generated</li>
           {actionError && <li role="alert" className="text-danger">{actionError}</li>}
           <li className="flex items-start gap-2">
-            {missingDefs.length ? (
-              <><Icon.Alert size={16} className="mt-0.5 text-danger" /> Unknown variables: {missingDefs.join(", ")}. Fix them before publishing.</>
-            ) : (
-              <><Icon.CheckCircle size={16} className="mt-0.5 text-success" /> Variables: {vars.length ? vars.map((v) => `{{${v}}}`).join(", ") : "none"}</>
-            )}
+            <><Icon.CheckCircle size={16} className="mt-0.5 text-success" /> Required fields: {vars.length ? vars.map((v) => `{{${v}}}`).join(", ") : "none"}. Missing values are skipped at send time.</>
           </li>
         </ul>
       </Dialog>
