@@ -490,6 +490,14 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
                           ⚠️ {currentEstimate.missing} contacts are missing template variables and will be skipped to protect email quality.
                         </p>
                       )}
+                      {currentEstimate.eligible > 0 && (
+                        <div className="mt-3 flex items-center justify-between border-t border-line/60 pt-2 font-mono text-[11px] text-muted">
+                          <span>ESTIMATED DISPATCH WINDOW</span>
+                          <span className="font-semibold text-fg">
+                            ~{Math.max(1, Math.ceil(currentEstimate.eligible / 10))}s @ 10 msg/s
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
