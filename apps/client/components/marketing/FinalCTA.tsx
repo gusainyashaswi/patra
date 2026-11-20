@@ -14,61 +14,49 @@ export function FinalCTA() {
   };
 
   return (
-    <section className="w-full bg-[#0755B5] text-[#F4F2E8] py-24 sm:py-32 overflow-hidden border-b border-[rgba(244,242,232,0.25)]">
-      <div className="mx-auto max-w-[1440px] px-5 sm:px-10 text-center flex flex-col items-center space-y-8">
-        <div className="inline-flex items-center gap-2 border border-[rgba(244,242,232,0.35)] bg-[rgba(244,242,232,0.08)] px-3 py-1 font-pixel text-[11px] sm:text-[12px] uppercase tracking-widest text-[#F4F2E8]">
-          <span className="h-1.5 w-1.5 bg-[#5FD07F]" />
+    <section className="w-full bg-[#F4F2E8] text-[#0755B5] py-20 sm:py-28 overflow-hidden border-b border-[rgba(7,85,181,0.2)]">
+      <div className="mx-auto max-w-[1440px] px-5 sm:px-10 text-center flex flex-col items-center space-y-6">
+        <div className="inline-flex items-center gap-2 border border-[rgba(7,85,181,0.3)] bg-[#FFFFFF] px-3 py-1 font-pixel text-[11px] uppercase tracking-widest text-[#0755B5] shadow-[2px_2px_0_0_#0755B5]">
+          <span className="h-2 w-2 bg-[#1D7438]" />
           READY TO DEPLOY IN UNDER 2 MINUTES
         </div>
 
-        <h2 className="display-hero text-[#F4F2E8] max-w-4xl">
+        <h2 className="display-hero text-[#0755B5] max-w-3xl font-yellix">
           Take control of your email infrastructure.
         </h2>
 
-        <p className="max-w-2xl text-[17px] sm:text-[20px] leading-relaxed text-[rgba(244,242,232,0.9)] font-sans">
-          Deploy with Docker Compose, connect your Resend credentials, and send auditable, rate-limited email campaigns without vendor lock-in.
+        <p className="max-w-xl text-[17px] sm:text-[19px] leading-relaxed text-[rgba(7,85,181,0.85)] font-sans">
+          Deploy with Docker Compose, connect your credentials, and dispatch auditable campaigns with zero vendor lock-in.
         </p>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-4 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-2 w-full sm:w-auto">
           <Link
             href="/signup"
-            className="mkt-btn mkt-btn-inverse text-[15px] font-medium w-full sm:w-auto justify-center"
+            className="mkt-btn mkt-btn-primary text-[15px] font-mono tracking-wider w-full sm:w-auto justify-center"
           >
             Create your account →
           </Link>
           <Link
             href="/dashboard?demo=1"
-            className="mkt-btn mkt-btn-ghost-cream text-[15px] font-medium w-full sm:w-auto justify-center"
+            className="mkt-btn mkt-btn-ghost-blue text-[15px] font-mono tracking-wider w-full sm:w-auto justify-center"
           >
-            Launch interactive demo
+            Launch demo
           </Link>
         </div>
 
-        {/* Terminal Quick-Start Block */}
-        <div className="mt-8 w-full max-w-2xl border border-[rgba(244,242,232,0.3)] bg-[rgba(7,85,181,0.85)] p-4 sm:p-5 text-left font-mono text-[12px] sm:text-[13px] flex items-center justify-between gap-4">
+        {/* Minimal Terminal Block */}
+        <div className="mt-6 w-full max-w-xl border-2 border-[#0755B5] bg-[#FFFFFF] p-3.5 sm:p-4 text-left font-mono text-[12px] flex items-center justify-between gap-4 shadow-[4px_4px_0_0_#0755B5]">
           <div className="min-w-0 flex-1 overflow-x-auto truncate">
-            <span className="text-[#5FD07F] select-none">$ </span>
-            <span className="text-[#F4F2E8]">{cloneCmd}</span>
+            <span className="text-[#1D7438] select-none font-bold">$ </span>
+            <span className="text-[#0755B5]">{cloneCmd}</span>
           </div>
           <button
             onClick={copy}
-            className="shrink-0 border border-[rgba(244,242,232,0.4)] px-3 py-1 hover:bg-white/10 text-[11px] uppercase tracking-wider text-[#F4F2E8] cursor-pointer"
+            className="shrink-0 border border-[#0755B5] px-2.5 py-1 hover:bg-[#0755B5] hover:text-[#F4F2E8] text-[11px] uppercase tracking-wider text-[#0755B5] cursor-pointer transition-colors"
           >
             {copied ? "✓ Copied" : "Copy"}
           </button>
-        </div>
-
-        {/* GitHub Direct Link */}
-        <div className="pt-2">
-          <a
-            href="https://github.com/gusainyashaswi/patra"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[13px] font-mono text-[rgba(244,242,232,0.7)] hover:text-[#F4F2E8] underline"
-          >
-            View Patra source repository on GitHub ↗
-          </a>
         </div>
       </div>
     </section>
