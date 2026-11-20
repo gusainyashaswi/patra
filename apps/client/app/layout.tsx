@@ -14,7 +14,7 @@ export const viewport = {
 };
 
 // Sets the theme before first paint so there is no light/dark flash.
-const themeScript = `(function(){try{var t=localStorage.getItem('patra-theme');if(!t){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t}catch(e){}})()`;
+const themeScript = `(function(){try{var t=localStorage.getItem('patra-theme')||'light';document.documentElement.dataset.theme=t}catch(e){}})()`;
 
 export default function RootLayout({ children }) {
   return (

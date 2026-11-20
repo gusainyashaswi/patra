@@ -1,93 +1,109 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Yellix';
+  src: url('/fonts/yellix.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'geistPixel';
+  src: url('/fonts/geist-pixel.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /*
-  Patra design tokens — "paper & ink"
-  Warm cream paper, near-black ink, one hot orange. Sharp corners, hard rules,
-  heavy grotesk display type, spaced mono labels. No raw hex outside this file
-  (except email content, which always renders as paper).
+  Patra design tokens — "Electric Blue & Cream"
+  Cream paper (#F4F2E8), Electric Blue (#0755B5), Crisp White surfaces (#FFFFFF).
+  Sharp corners (0px), hard hairline rules, heavy grotesk display type (Yellix),
+  spaced mono labels (geistPixel).
 */
 
 :root {
-  --bg: #f1eee5;
-  --surface: #f7f5ee;
-  --surface-2: #e9e5da;
-  --surface-3: #ddd8cb;
-  --border: #d6d0c1;
-  --border-strong: #0e0e0e;
-  --fg: #0e0e0e;
-  --fg-muted: #45413a;
-  --fg-subtle: #6b665c;
-  --primary: #0e0e0e;
-  --primary-hover: #2a2926;
-  --on-primary: #f1eee5;
-  --accent: #f05a35;
-  --accent-hover: #e04a25;
-  --on-accent: #0e0e0e;
-  --accent-ink: #b8391a;
-  --accent-soft: #f8dccf;
-  --ring: #f05a35;
-  --nav: #0e0e0e;
-  --on-nav: #f1eee5;
+  --bg: #F4F2E8;
+  --surface: #FFFFFF;
+  --surface-2: #F5F0E6;
+  --surface-3: #EAE4D5;
+  --border: rgba(7, 85, 181, 0.22);
+  --border-strong: #0755B5;
+  --fg: #0755B5;
+  --fg-muted: #1A4D8C;
+  --fg-subtle: #4D76A8;
+  --primary: #0755B5;
+  --primary-hover: #05418E;
+  --on-primary: #F4F2E8;
+  --accent: #0755B5;
+  --accent-hover: #05418E;
+  --on-accent: #F4F2E8;
+  --accent-ink: #0755B5;
+  --accent-soft: rgba(7, 85, 181, 0.08);
+  --ring: #0755B5;
+  --nav: #F4F2E8;
+  --on-nav: #0755B5;
 
-  --success: #1d7438;
-  --success-soft: #dcebd9;
-  --warning: #8f5200;
-  --warning-soft: #f4e4c4;
-  --danger: #b42318;
-  --danger-soft: #f6d7d1;
-  --info: #1f4fc9;
-  --info-soft: #dbe2f3;
+  --success: #1D7438;
+  --success-soft: #DCEBD9;
+  --warning: #8F5200;
+  --warning-soft: #F4E4C4;
+  --danger: #B42318;
+  --danger-soft: #F6D7D1;
+  --info: #0755B5;
+  --info-soft: rgba(7, 85, 181, 0.1);
 
-  --tint-1: #f05a35;
-  --tint-2: #f6946f;
-  --tint-3: #fac6b0;
-  --tint-4: #fbe3d8;
-  --panel: #fbfaf6;
-  --shadow-pop: 6px 6px 0 0 #0e0e0e;
-  /* System font stacks keep the build independent of external font downloads. */
-  --font-inter: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-inter-tight: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-jetbrains: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --tint-1: #0755B5;
+  --tint-2: rgba(7, 85, 181, 0.65);
+  --tint-3: rgba(7, 85, 181, 0.35);
+  --tint-4: rgba(7, 85, 181, 0.15);
+  --panel: #FFFFFF;
+  --shadow-pop: 4px 4px 0 0 #0755B5;
+
+  --font-inter: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-inter-tight: 'Yellix', var(--font-inter), ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-jetbrains: 'geistPixel', "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  --bg: #0e0e0e;
-  --surface: #141413;
-  --surface-2: #1b1b19;
-  --surface-3: #272624;
-  --border: #2a2926;
-  --border-strong: #4a4842;
-  --fg: #f1eee5;
-  --fg-muted: #bdb8ac;
-  --fg-subtle: #8f8a7f;
-  --primary: #f1eee5;
-  --primary-hover: #ffffff;
-  --on-primary: #0e0e0e;
-  --accent: #f05a35;
-  --accent-hover: #ff6b45;
-  --on-accent: #0e0e0e;
-  --accent-ink: #ff7a55;
-  --accent-soft: #2b1710;
-  --ring: #f05a35;
-  --nav: #080808;
-  --on-nav: #f1eee5;
+  --bg: #031226;
+  --surface: #071E3D;
+  --surface-2: #0B2952;
+  --surface-3: #103466;
+  --border: rgba(134, 166, 255, 0.2);
+  --border-strong: #86A6FF;
+  --fg: #F4F2E8;
+  --fg-muted: #B8CEF5;
+  --fg-subtle: #7E9DC9;
+  --primary: #86A6FF;
+  --primary-hover: #A6BEFF;
+  --on-primary: #031226;
+  --accent: #86A6FF;
+  --accent-hover: #A6BEFF;
+  --on-accent: #031226;
+  --accent-ink: #86A6FF;
+  --accent-soft: rgba(134, 166, 255, 0.15);
+  --ring: #86A6FF;
+  --nav: #020C1A;
+  --on-nav: #F4F2E8;
 
-  --success: #5fd07f;
-  --success-soft: #11251a;
-  --warning: #f2b54a;
-  --warning-soft: #2a2010;
-  --danger: #ff7a6b;
-  --danger-soft: #2c1412;
-  --info: #86a6ff;
-  --info-soft: #121a30;
+  --success: #4ADE80;
+  --success-soft: #0E2918;
+  --warning: #FBBF24;
+  --warning-soft: #2B210B;
+  --danger: #F87171;
+  --danger-soft: #2E1212;
+  --info: #86A6FF;
+  --info-soft: #0C1E3C;
 
-  --tint-1: #f05a35;
-  --tint-2: #b8482c;
-  --tint-3: #6e3324;
-  --tint-4: #33201a;
-  --panel: #151413;
-  --shadow-pop: 6px 6px 0 0 #f05a35;
+  --tint-1: #86A6FF;
+  --tint-2: #5B84F0;
+  --tint-3: #3255B8;
+  --tint-4: #192D66;
+  --panel: #071E3D;
+  --shadow-pop: 4px 4px 0 0 #86A6FF;
   color-scheme: dark;
 }
 
@@ -136,8 +152,8 @@
 /* Sharp, architectural corners everywhere (pills/dots keep rounded-full). */
 @theme {
   --radius-sm: 0px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
   --radius-xl: 0px;
   --radius-2xl: 0px;
 }
@@ -166,9 +182,9 @@ body {
 
 .display {
   font-family: var(--font-inter-tight), var(--font-inter), sans-serif;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.035em;
-  line-height: 0.98;
+  line-height: 1.02;
 }
 
 /* Faint drafting grid used behind hero blocks (as in the reference's dark page). */
@@ -178,6 +194,36 @@ body {
     linear-gradient(to bottom, color-mix(in oklab, var(--fg) 6%, transparent) 1px, transparent 1px);
   background-size: 56px 56px;
 }
+
+/* Autofill reset to prevent browser default cyan/yellow highlighting */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--fg) !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface) inset !important;
+  box-shadow: 0 0 0px 1000px var(--surface) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes signal-flow {
+  0% { stroke-dashoffset: 32; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes beacon-pulse {
+  0%, 100% { opacity: 0.95; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.9); }
+}
+
+.animate-float-gentle { animation: float-gentle 4.5s ease-in-out infinite; }
+.animate-signal-flow { stroke-dasharray: 6 6; animation: signal-flow 1.4s linear infinite; }
+.animate-beacon-pulse { animation: beacon-pulse 2.2s ease-in-out infinite; }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--ring);
