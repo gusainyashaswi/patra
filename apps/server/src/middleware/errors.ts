@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { AppError } from "../lib/errors.js";
 import { ApiError } from "../utils/apiError.js";
 
-export const errorHandler: ErrorRequestHandler = (err, _req, res) => {
+export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json({
       success: false,

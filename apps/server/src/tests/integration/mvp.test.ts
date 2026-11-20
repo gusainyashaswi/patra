@@ -67,10 +67,12 @@ describe("MVP completion", () => {
       expect(response.headers.get("content-type")).toContain("text/event-stream");
       const reader = response.body!.getReader();
       const first = await reader.read();
-      expect(new TextDecoder().decode(first.value)).toContain("event: snapshot");
+      expect(new TextDecoder().decode(first.value)).toContain("event: campaign");
+      await Campaign.updateOne({ _id: campaign.id }, { $inc: { "counters.sentCount": 1 } });
       await publishCampaign(ctx.organization.id, campaign.id);
       const notification = await reader.read();
-      expect(new TextDecoder().decode(notification.value)).toContain("event: change");
+      expect(new TextDecoder().decode(notification.value)).toContain("event: campaign");
+      expect(new TextDecoder().decode(notification.value)).toContain('"sentCount":1');
       await reader.cancel();
     } finally { controller.abort(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   });

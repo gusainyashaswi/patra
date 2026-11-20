@@ -35,6 +35,18 @@ if (!result.success) {
   process.exit(1);
 }
 const parsed = result.data;
+if (parsed.NODE_ENV === "production") {
+  if (process.env.USE_FAKE_TRANSPORT === "true") throw new Error("Fake transport is not allowed in production");
+  const access = parsed.ACCESS_TOKEN_SECRET || parsed.JWT_ACCESS_SECRET || parsed.JWT_SECRET;
+  const refresh = parsed.REFRESH_TOKEN_SECRET || parsed.JWT_REFRESH_SECRET;
+  const encryption = parsed.CREDENTIALS_KEY || parsed.ENCRYPTION_KEY;
+  if (!access || access.length < 32 || access.startsWith("patra_jwt_") || !refresh || refresh.length < 32 || refresh.startsWith("patra_jwt_") || access === refresh) {
+    throw new Error("Production requires distinct ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET values of at least 32 characters");
+  }
+  if (!encryption || !/^[a-fA-F0-9]{64}$/.test(encryption) || encryption === "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef") throw new Error("Production requires a unique 64-character hex CREDENTIALS_KEY");
+  if (!parsed.MONGODB_URI || !process.env.REDIS_URL) throw new Error("Production requires explicit MongoDB and Redis URLs");
+}
+
 
 const defaultCredentialsKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const defaultAccessSecret = "patra_jwt_access_secret_super_secure_key_123456789";
