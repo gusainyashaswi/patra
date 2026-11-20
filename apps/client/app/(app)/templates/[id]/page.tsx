@@ -281,6 +281,8 @@ function TemplateEditor({ source, isLocal, workspace }) {
   const [previewError, setPreviewError] = useState("");
   const [testOptions, setTestOptions] = useState(null);
   const [senderId, setSenderId] = useState("");
+  const [testMode, setTestMode] = useState("verified");
+  const [testTransportId, setTestTransportId] = useState("");
   const testRequest = useRef(null);
   const saved = useRef({ snapshot: source, revision: source.revision });
   const pendingSave = useRef(Promise.resolve());
@@ -467,12 +469,16 @@ function TemplateEditor({ source, isLocal, workspace }) {
     setTestOptions(null);
     setSenderId("");
     try {
-      const [{ data: user }, senders] = await Promise.all([
+      const [{ data: user }, senders, transports] = await Promise.all([
         api("/auth/me"),
         templateRequest(workspace, "/senders"),
+        templateRequest(workspace, "/transports"),
       ]);
-      setTestOptions({ recipient: user.email, senders });
+      const resendTransports = transports.filter((transport) => transport.type === "RESEND");
+      setTestOptions({ recipient: user.email, senders, transports: resendTransports });
       setSenderId(senders.find((sender) => sender.isDefault)?.id ?? senders[0]?.id ?? "");
+      setTestMode(senders.length ? "verified" : "sandbox");
+      setTestTransportId(resendTransports[0]?.id ?? resendTransports[0]?._id ?? "");
     } catch (error) { setActionError(error.message); }
   }
 
@@ -485,9 +491,11 @@ function TemplateEditor({ source, isLocal, workspace }) {
       setSaveError("");
       let body = { revision };
       if (action === "test-send") {
-        const key = `${revision}/${senderId}`;
+        const key = `${revision}/${testMode}/${testMode === "sandbox" ? testTransportId : senderId}`;
         if (testRequest.current?.key !== key) testRequest.current = { key, id: crypto.randomUUID() };
-        body = { revision, senderId, requestId: testRequest.current.id };
+        body = { revision, requestId: testRequest.current.id, ...(testMode === "sandbox"
+          ? { mode: "sandbox", transportId: testTransportId }
+          : { senderId }) };
       }
       const result = await templateRequest(workspace, `/templates/${source.id}/${action}`, { method: "POST", body });
       if (action === "publish") {
@@ -569,7 +577,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
             />
           </div>
           {isLocal && <Button size="sm" loading={busy} onClick={copyToWorkspace}>Save to workspace</Button>}
-          {!isLocal && <><Button variant="secondary" size="sm" onClick={openTest}>
+          {!isLocal && <><Button variant="secondary" size="sm" aria-label="Send test email" onClick={openTest}>
             <Icon.Mail size={14} /> <span className="hidden sm:inline">Send test</span>
           </Button>
           <Button size="sm" onClick={() => { setActionError(""); setPublishOpen(true); }} disabled={!dirtySincePublish}>
@@ -811,7 +819,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
             <Button variant="secondary" disabled={busy} onClick={() => setTestOpen(false)}>Cancel</Button>
             <Button
               loading={busy}
-              disabled={workspace && !senderId}
+              disabled={workspace && (!testOptions || !(testMode === "sandbox" ? testTransportId : senderId))}
               onClick={() => {
                 if (workspace) { runAction("test-send"); return; }
                 setBusy(true);
@@ -831,7 +839,20 @@ function TemplateEditor({ source, isLocal, workspace }) {
         {workspace ? (testOptions ? (
           <div className="space-y-4">
             <Field label="Send to" htmlFor="test-recipient"><Input id="test-recipient" value={testOptions.recipient} readOnly /></Field>
-            {testOptions.senders.length ? (
+            <Field label="Sending mode" htmlFor="test-mode">
+              <Select id="test-mode" value={testMode} onChange={(event) => setTestMode(event.target.value)}>
+                <option value="verified">Verified sender</option>
+                <option value="sandbox">Resend sandbox · own inbox only</option>
+              </Select>
+            </Field>
+            {testMode === "sandbox" ? <>
+              <p className="text-sm text-muted">Sends from onboarding@resend.dev to your signed-in email only. Use the same email as your Resend account. This tests the template; it does not send a campaign or verify a domain.</p>
+              {testOptions.transports.length ? <Field label="Resend transport" htmlFor="test-transport">
+                <Select id="test-transport" value={testTransportId} onChange={(event) => setTestTransportId(event.target.value)}>
+                  {testOptions.transports.map((transport) => <option key={transport.id ?? transport._id} value={transport.id ?? transport._id}>{transport.name}</option>)}
+                </Select>
+              </Field> : <Link href="/settings" className="underline">Add a Resend API key in Settings</Link>}
+            </> : testOptions.senders.length ? (
               <Field label="Sender identity" htmlFor="test-sender">
                 <Select id="test-sender" value={senderId} onChange={(event) => setSenderId(event.target.value)}>
                   {testOptions.senders.map((sender) => <option key={sender.id} value={sender.id}>{sender.displayName} · {sender.fromEmail}</option>)}

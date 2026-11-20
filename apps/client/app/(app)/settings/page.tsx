@@ -76,7 +76,7 @@ function TransportForm({ create, toast }) {
           <Field label="Name" htmlFor="tr-name">
             <Input id="tr-name" required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
           </Field>
-          <Field label="API key" htmlFor="tr-key" hint="Credentials are encrypted before storage.">
+          <Field label="API key" htmlFor="tr-key" hint="Encrypted before storage. Sending-only keys work for own-inbox sandbox tests; domain sync requires domain-read access.">
             <Input id="tr-key" type="password" autoComplete="off" required pattern="re_.+" value={form.key} onChange={(event) => setForm({ ...form, key: event.target.value })} />
           </Field>
           <Field label="Emails per second" htmlFor="tr-rate" hint="Match your provider’s sending limit.">
@@ -122,7 +122,7 @@ function Transports({ items, create, toast, runAction }) {
       <div className="mb-2 flex items-end justify-between gap-6 border-b-2 border-line-strong pb-6">
         <div>
           <h2 className="display text-[28px]">Mail transports</h2>
-          <p className="mt-2 text-muted">Check your Resend key and sync verified sending domains.</p>
+          <p className="mt-2 text-muted">Connect Resend for verified-domain campaigns or own-inbox template tests.</p>
         </div>
         <TransportForm create={create} toast={toast} />
       </div>
