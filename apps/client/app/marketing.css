@@ -1,0 +1,209 @@
+@font-face {
+  font-family: 'Yellix';
+  src: url('/fonts/yellix.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'geistPixel';
+  src: url('/fonts/geist-pixel.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Scoped Patra Marketing Design Tokens */
+.patra-marketing {
+  --mkt-blue: #0755B5;
+  --mkt-cream: #F4F2E8;
+  --mkt-cream-soft: #F5F0E6;
+  --mkt-blue-line: rgba(7, 85, 181, 0.35);
+  --mkt-blue-line-strong: #0755B5;
+  --mkt-cream-line: rgba(244, 242, 232, 0.25);
+  --mkt-cream-line-strong: #F4F2E8;
+  --mkt-green: #1D7438;
+  --mkt-green-soft: #DCEBD9;
+  --mkt-amber: #8F5200;
+  --mkt-amber-soft: #F4E4C4;
+  --mkt-coral: #B42318;
+  --mkt-coral-soft: #F6D7D1;
+  
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  background-color: var(--mkt-cream);
+  color: var(--mkt-blue);
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography Helpers */
+.patra-marketing .font-yellix {
+  font-family: 'Yellix', var(--font-inter-tight), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.patra-marketing .font-pixel {
+  font-family: 'geistPixel', var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.patra-marketing .font-mono-code {
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.patra-marketing .display-hero {
+  font-family: 'Yellix', var(--font-inter-tight), -apple-system, sans-serif;
+  font-size: clamp(2.0rem, calc(1.5rem + 3.4vw), 5.25rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-weight: 400;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: manual;
+}
+
+.patra-marketing .display-section {
+  font-family: 'Yellix', var(--font-inter-tight), -apple-system, sans-serif;
+  font-size: clamp(1.75rem, calc(1.35rem + 1.8vw), 3.4rem);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  font-weight: 400;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: manual;
+}
+
+.patra-marketing .display-sub {
+  font-family: 'Yellix', var(--font-inter-tight), -apple-system, sans-serif;
+  font-size: clamp(1.25rem, calc(1.1rem + 1.0vw), 2.1rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  font-weight: 400;
+  overflow-wrap: break-word;
+}
+
+.patra-marketing .mkt-label {
+  font-family: 'geistPixel', var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Button Component Styles */
+.patra-marketing .mkt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 0px;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 14.6px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: opacity 140ms cubic-bezier(0.4, 0, 0.2, 1), transform 140ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms ease;
+}
+
+.patra-marketing .mkt-btn:hover {
+  transform: translateY(-1px);
+}
+
+.patra-marketing .mkt-btn:active {
+  transform: translateY(0);
+}
+
+.patra-marketing .mkt-btn-primary {
+  background-color: var(--mkt-blue);
+  color: var(--mkt-cream);
+  border: 1px solid var(--mkt-blue);
+  padding: 0 24px;
+  height: 48px;
+}
+
+.patra-marketing .mkt-btn-primary:hover {
+  background-color: #05418e;
+  border-color: #05418e;
+}
+
+.patra-marketing .mkt-btn-inverse {
+  background-color: var(--mkt-cream);
+  color: var(--mkt-blue);
+  border: 1px solid var(--mkt-cream);
+  padding: 0 24px;
+  height: 48px;
+}
+
+.patra-marketing .mkt-btn-inverse:hover {
+  background-color: #ffffff;
+  color: #05418e;
+}
+
+.patra-marketing .mkt-btn-ghost-blue {
+  background-color: transparent;
+  color: var(--mkt-blue);
+  border: 1px solid var(--mkt-blue);
+  padding: 0 20px;
+  height: 48px;
+}
+
+.patra-marketing .mkt-btn-ghost-blue:hover {
+  background-color: rgba(7, 85, 181, 0.08);
+}
+
+.patra-marketing .mkt-btn-ghost-cream {
+  background-color: transparent;
+  color: var(--mkt-cream);
+  border: 1px solid var(--mkt-cream);
+  padding: 0 20px;
+  height: 48px;
+}
+
+.patra-marketing .mkt-btn-ghost-cream:hover {
+  background-color: rgba(244, 242, 232, 0.12);
+}
+
+.patra-marketing .mkt-btn-sm {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13.5px;
+}
+
+/* Animations */
+@keyframes mkt-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.9); }
+}
+
+.patra-marketing .mkt-pulse-dot {
+  animation: mkt-live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes mkt-ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.patra-marketing .mkt-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: mkt-ticker 30s linear infinite;
+}
+
+.patra-marketing .mkt-ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patra-marketing .mkt-pulse-dot,
+  .patra-marketing .mkt-ticker-track,
+  .patra-marketing .mkt-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
