@@ -8,7 +8,19 @@ import { useWorkspace, workspaceRequest } from "@/lib/workspace-api";
 
 const PAGE = 12;
 
-function AddContactDialog({ workspace, lists, onSaved }) {
+interface ContactList {
+  id: string;
+  name: string;
+  count?: number;
+}
+
+interface AddContactDialogProps {
+  workspace: string | null;
+  lists: ContactList[];
+  onSaved: (list?: ContactList) => void;
+}
+
+function AddContactDialog({ workspace, lists, onSaved }: AddContactDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -22,7 +34,7 @@ function AddContactDialog({ workspace, lists, onSaved }) {
     setName(""); setEmail(""); setCollege(""); setError("");
     setListId(lists[0]?.id ?? ""); setListName(""); setOpen(true);
   }
-  async function save(event) {
+  async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
     setSaving(true); setError("");
@@ -33,7 +45,7 @@ function AddContactDialog({ workspace, lists, onSaved }) {
       });
       setOpen(false);
       onSaved(data.list);
-    } catch (error) { setError(error.message); }
+    } catch (error: any) { setError(error.message); }
     finally { setSaving(false); }
   }
   return <>
@@ -65,7 +77,7 @@ export default function ContactsPage() {
   return <ContactDirectory workspace={workspace} />;
 }
 
-function ContactDirectory({ workspace }) {
+function ContactDirectory({ workspace }: { workspace: string | null }) {
   const [q, setQ] = useState("");
   const [view, setView] = useState("all");
   const [page, setPage] = useState(0);
