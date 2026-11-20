@@ -3,7 +3,7 @@
 import { api } from "@/lib/api";
 import { useCampaignStream } from "@/lib/campaign-stream";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspace, workspaceRequest } from "@/lib/workspace-api";
 import { Button, Card, Dialog, Field, Input, PageHeader, Select, StatusBadge, Table, Td, Th } from "./ui";
@@ -42,20 +42,23 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
   const query = new URLSearchParams({ page: String(page), limit: "25", ...(status ? { status } : {}) }).toString();
   const detailUrl = (campaignId) => `/campaigns/${campaignId}?org=${workspace.org.id}`;
 
+  const loadOptions = useCallback(async () => {
+    const result = await workspaceRequest<CampaignOptions>(workspace, "/campaigns/options");
+    return {
+      versions: Array.isArray(result.versions) ? result.versions : [],
+      senders: Array.isArray(result.senders) ? result.senders : [],
+      lists: Array.isArray(result.lists) ? result.lists : [],
+    };
+  }, [workspace]);
+
   useEffect(() => {
     let active = true;
     let timer;
     async function load() {
       try {
         if (create) {
-          const result = await workspaceRequest<CampaignOptions>(workspace, "/campaigns/options");
-          if (active) {
-            setOptions({
-              versions: Array.isArray(result.versions) ? result.versions : [],
-              senders: Array.isArray(result.senders) ? result.senders : [],
-              lists: Array.isArray(result.lists) ? result.lists : [],
-            });
-          }
+          const result = await loadOptions();
+          if (active) setOptions(result);
         } else {
           const [campaign, rows] = await Promise.all([
             workspaceRequest<Campaign | Campaign[]>(workspace, id ? `/campaigns/${id}` : "/campaigns"),
@@ -69,7 +72,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
     }
     load();
     return () => { active = false; clearTimeout(timer); };
-  }, [workspace, id, create, query, revision]);
+  }, [workspace, id, create, query, revision, loadOptions]);
 
   useEffect(() => {
     if (!create || !Object.values(form).every(value => value.trim())) return;
@@ -97,7 +100,7 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current) return;
+    if (inFlight.current || !Object.values(form).every(value => value.trim())) return;
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -136,6 +139,8 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
   }
 
   const currentEstimate = create ? estimate?.form === form ? estimate.result : null : estimate?.result;
+  const campaignReady = Boolean(options?.versions.length && options.senders.length && options.lists.length);
+  const formComplete = Object.values(form).every(value => value.trim());
   const campaignRows = Array.isArray(data) ? [...data].sort((left, right) => {
     if (sort === "sent") return right.counters.sentCount - left.counters.sentCount;
     if (sort === "recipients") return right.counters.totalRecipients - left.counters.totalRecipients;
@@ -151,25 +156,35 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
       {create ? options ? (
         <Card className="max-w-2xl p-6">
           <form className="space-y-5" onSubmit={save}>
-            <p className="border-b border-line pb-4 text-sm text-muted">Complete these four choices. You can review and send the campaign later.</p>
+            <div className="border-b border-line pb-4">
+              <p className="text-sm text-muted">Complete these four choices. Creating a draft never sends email; you can review the audience and queue it afterwards.</p>
+              {!campaignReady && <p className="mt-3 text-sm text-muted">Finish the missing setup below, then use Refresh options to continue here.</p>}
+            </div>
             <Field label="1. Campaign name" htmlFor="campaign-name">
               <Input id="campaign-name" required maxLength={120} placeholder="e.g. Spring registration reminder" value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />
             </Field>
             {[
-              ["templateVersionId", "2. Email template", options.versions, item => `${item.subject} · v${item.version}`],
-              ["senderIdentityId", "3. Sender", options.senders, item => `${item.displayName} <${item.fromEmail}>`],
-              ["listId", "4. Audience", options.lists, item => item.name],
-            ].map(([key, label, items, display]) => (
+              ["templateVersionId", "2. Email template", options.versions, (item) => `${item.subject} · v${item.version}`, "/templates", "Save a template to your workspace, then publish it."],
+              ["senderIdentityId", "3. Sender", options.senders, (item) => `${item.displayName} <${item.fromEmail}>`, "/settings?tab=transports", "Add a Resend transport, sync a verified domain, then add a sender."],
+              ["listId", "4. Audience", options.lists, (item) => item.name, "/contacts/import", "Import contacts into an audience list."],
+            ].map(([key, label, items, display, href, help]) => (
               <Field key={key} label={label} htmlFor={key}>
-                <Select id={key} required value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })}>
+                <Select id={key} required disabled={!items.length} value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })}>
                   <option value="">Choose {label.replace(/^\d\. /, "").toLowerCase()}</option>
                   {items.map(item => <option key={item.id} value={item.id}>{display(item)}</option>)}
                 </Select>
-                {!items.length && <p className="mt-2 text-sm text-muted">Add a {label.replace(/^\d\. /, "").toLowerCase()} before creating a campaign.</p>}
+                {!items.length && <p className="mt-2 text-sm text-muted">{help} <Link className="font-medium underline" href={`${href}${href.includes("?") ? "&" : "?"}org=${workspace.org.id}`}>Set this up</Link></p>}
               </Field>
             ))}
             {currentEstimate && <Estimate value={currentEstimate} />}
-            <Button type="submit" loading={busy}>Create draft</Button>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Button type="submit" loading={busy} disabled={!formComplete || !campaignReady}>Create draft</Button>
+              <Button type="button" variant="secondary" disabled={busy} onClick={() => {
+                setError("");
+                setBusy(true);
+                loadOptions().then(setOptions, (error: Error) => setError(error.message)).finally(() => setBusy(false));
+              }}>Refresh options</Button>
+            </div>
           </form>
         </Card>
       ) : !error && <p role="status">Loading campaign options…</p> : data ? id ? (
