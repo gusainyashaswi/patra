@@ -37,12 +37,6 @@ export function FinalCTA() {
           >
             Create your account →
           </Link>
-          <Link
-            href="/dashboard?demo=1"
-            className="mkt-btn mkt-btn-ghost-blue text-[15px] font-mono tracking-wider w-full sm:w-auto justify-center"
-          >
-            Launch demo
-          </Link>
         </div>
 
         {/* Minimal Terminal Block */}

@@ -34,12 +34,6 @@ export function HeroSection() {
               >
                 Get started →
               </Link>
-              <Link
-                href="/dashboard?demo=1"
-                className="mkt-btn mkt-btn-ghost-blue text-[15px] font-mono tracking-wider w-full sm:w-auto justify-center"
-              >
-                Live demo
-              </Link>
             </div>
 
             {/* Core Stack Badges */}

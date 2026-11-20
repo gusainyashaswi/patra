@@ -124,23 +124,13 @@ function LoginForm() {
         </button>
       </form>
 
-      <div className="mt-8 space-y-4 border-t border-line pt-6 text-center text-[14px]">
+      <div className="mt-8 border-t border-line pt-6 text-center text-[14px]">
         <p className="text-subtle">
           Don&apos;t have an account?{" "}
           <Link href="/signup" className="font-mono font-bold uppercase tracking-wider text-fg underline underline-offset-4 hover:opacity-80">
             Create an account
           </Link>
         </p>
-
-        <div className="pt-1">
-          <a
-            href="/dashboard?demo=1"
-            className="inline-flex items-center gap-1.5 border border-line bg-surface px-3.5 py-2 font-mono text-[12px] font-bold uppercase tracking-wider text-accent hover:border-line-strong hover:bg-fg/5 transition-colors"
-          >
-            <span>Just exploring? Open demo workspace</span>
-            <span aria-hidden="true">→</span>
-          </a>
-        </div>
       </div>
     </AuthLayout>
   );

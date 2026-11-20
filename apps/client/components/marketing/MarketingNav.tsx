@@ -39,12 +39,6 @@ export function MarketingNav() {
         {/* Action CTAs */}
         <div className="hidden sm:flex items-center gap-5 shrink-0">
           <Link
-            href="/dashboard?demo=1"
-            className="text-[13px] font-mono uppercase tracking-wider text-[rgba(7,85,181,0.8)] hover:text-[#0755B5] transition-colors"
-          >
-            Live Demo
-          </Link>
-          <Link
             href="/login"
             className="text-[13px] font-mono uppercase tracking-wider text-[#0755B5] hover:opacity-75 transition-opacity"
           >
@@ -91,13 +85,6 @@ export function MarketingNav() {
             ))}
           </nav>
           <div className="pt-4 border-t border-[rgba(7,85,181,0.2)] flex flex-col gap-3 font-mono text-[13px]">
-            <Link
-              href="/dashboard?demo=1"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-1 text-[rgba(7,85,181,0.8)]"
-            >
-              Live Demo
-            </Link>
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}

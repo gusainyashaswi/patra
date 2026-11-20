@@ -23,7 +23,6 @@ export function MarketingFooter() {
             <a href="#features" className="hover:opacity-75 transition-opacity">Features</a>
             <a href="#designer" className="hover:opacity-75 transition-opacity">Designer</a>
             <a href="#faq" className="hover:opacity-75 transition-opacity">FAQ</a>
-            <Link href="/dashboard?demo=1" className="hover:opacity-75 transition-opacity">Live Demo</Link>
             <Link href="/login" className="hover:opacity-75 transition-opacity">Log In</Link>
             <a
               href="https://github.com/gusainyashaswi/patra"
