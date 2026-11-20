@@ -49,7 +49,13 @@ function CampaignContent({ workspace, id, create }: CampaignContentProps) {
       try {
         if (create) {
           const result = await workspaceRequest<CampaignOptions>(workspace, "/campaigns/options");
-          if (active) setOptions(result);
+          if (active) {
+            setOptions({
+              versions: Array.isArray(result.versions) ? result.versions : [],
+              senders: Array.isArray(result.senders) ? result.senders : [],
+              lists: Array.isArray(result.lists) ? result.lists : [],
+            });
+          }
         } else {
           const [campaign, rows] = await Promise.all([
             workspaceRequest<Campaign | Campaign[]>(workspace, id ? `/campaigns/${id}` : "/campaigns"),

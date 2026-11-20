@@ -66,6 +66,15 @@ function demoData(path: string, method: string): unknown | undefined {
   if (!match) return undefined;
   const resource = match[1] || "/";
   if (resource === "/overview") return demoOverview(new URLSearchParams(query).get("period") ?? "30d");
+  if (resource === "/campaigns/options") {
+    return {
+      versions: templates
+        .filter((template) => template.status === "PUBLISHED")
+        .map((template) => ({ id: `${template.id}:v${template.latestVersion}`, subject: template.subject, version: template.latestVersion })),
+      senders,
+      lists,
+    };
+  }
   if (resource === "/campaigns") return method === "GET" ? demoCampaignList.map(currentDemoCampaign) : currentDemoCampaign(demoCampaigns[0]);
   const campaign = resource.match(/^\/campaigns\/([^/]+)(?:\/(recipients|pause|resume|send))?$/);
   if (campaign) {
