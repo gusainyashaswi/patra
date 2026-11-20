@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Logo } from "@/components/icons";
 
 export function TemplateEditorPreview() {
   const [activeTab, setActiveTab] = useState<"desktop" | "mobile">("desktop");
@@ -105,7 +106,7 @@ export function TemplateEditorPreview() {
           >
             {/* Header Brand */}
             <div className="flex items-center justify-between border-b border-[rgba(7,85,181,0.2)] pb-4 mb-6">
-              <span className="font-yellix text-[20px] sm:text-[22px] font-bold tracking-tight">PATRA</span>
+              <Logo size={22} />
               <span className="text-[11px] font-mono text-[rgba(7,85,181,0.6)] uppercase">ISSUE #04</span>
             </div>
 

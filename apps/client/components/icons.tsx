@@ -78,14 +78,21 @@ export const Icon: Record<string, (props: IconProps) => ReactElement> = {
   Sparkle: (p) => <Svg {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" /></Svg>,
 };
 
-// Patra wordmark: heavy display type in the accent, like the reference's FILEDROP mark.
 export function Logo({ size = 26, className = "" }: { size?: number; className?: string }) {
   return (
     <span
-      className={`display select-none text-accent ${className}`}
-      style={{ fontSize: size, letterSpacing: "-0.05em", lineHeight: 1 }}
-    >
-      PATRA
-    </span>
+      role="img"
+      aria-label="Patra"
+      className={`inline-block shrink-0 select-none ${className}`}
+      style={{
+        width: size * 2.15,
+        height: size,
+        backgroundImage: "url('/patra-logo.png')",
+        backgroundRepeat: "no-repeat",
+        backgroundSize: `${size * 6.4417}px ${size * 2.15}px`,
+        backgroundPosition: `-${size * 2.15}px -${size * 0.6583}px`,
+        mixBlendMode: "multiply",
+      }}
+    />
   );
 }

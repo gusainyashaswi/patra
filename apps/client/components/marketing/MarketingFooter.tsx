@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Logo } from "@/components/icons";
 
 export function MarketingFooter() {
   return (
@@ -10,7 +11,7 @@ export function MarketingFooter() {
           {/* Brand */}
           <div className="space-y-2">
             <span className="font-yellix text-[28px] font-bold tracking-tight text-[#0755B5]">
-              PATRA
+              <Logo size={38} />
             </span>
             <p className="max-w-md text-[14px] leading-relaxed text-[rgba(7,85,181,0.8)]">
               Self-hosted email infrastructure and campaign management platform. Sits above your mail providers to manage transports, visual templates, audiences, and queue-backed dispatches.
