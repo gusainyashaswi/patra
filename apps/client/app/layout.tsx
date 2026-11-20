@@ -1,4 +1,3 @@
-import Script from "next/script";
 import "./globals.css";
 
 export const metadata = {
@@ -7,14 +6,8 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f1eee5" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
-  ],
+  themeColor: "#f1eee5",
 };
-
-// Sets the theme before first paint so there is no light/dark flash.
-const themeScript = `(function(){try{var t=localStorage.getItem('patra-theme')||'light';document.documentElement.dataset.theme=t}catch(e){}})()`;
 
 export default function RootLayout({ children }) {
   return (
@@ -23,16 +16,7 @@ export default function RootLayout({ children }) {
       suppressHydrationWarning
       className="h-full antialiased"
     >
-      <head>
-        {/* Patra supplies its own themes. Prevent style rewriting before hydration. */}
-        <meta name="darkreader-lock" />
-      </head>
-      <body className="min-h-full">
-        <Script id="patra-theme" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
-        {children}
-      </body>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }

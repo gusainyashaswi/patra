@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { Icon, Logo } from "./icons";
 import { cx } from "./ui";
 import { api, inDemoMode } from "@/lib/api";
@@ -14,37 +14,6 @@ const nav = [
   { href: "/contacts", label: "Contacts" },
   { href: "/settings", label: "Settings" },
 ];
-
-// The theme lives on <html data-theme>, set before paint by the root layout script.
-const themeListeners = new Set<() => void>();
-const themeStore = {
-  subscribe: (fn: () => void) => {
-    themeListeners.add(fn);
-    return () => {
-      themeListeners.delete(fn);
-    };
-  },
-  get: () => document.documentElement.dataset.theme || "light",
-  set: (t: string) => {
-    document.documentElement.dataset.theme = t;
-    localStorage.setItem("patra-theme", t);
-    themeListeners.forEach((fn) => fn());
-  },
-};
-
-function ThemeToggle() {
-  const theme = useSyncExternalStore(themeStore.subscribe, themeStore.get, () => null);
-  const next = theme === "dark" ? "light" : "dark";
-  return (
-    <button
-      onClick={() => themeStore.set(next)}
-      aria-label={`Switch to ${next} theme`}
-      className="grid h-10 w-10 place-items-center text-on-nav/75 hover:bg-fg/10 hover:text-on-nav cursor-pointer transition-colors"
-    >
-      {theme === "dark" ? <Icon.Sun size={18} /> : <Icon.Moon size={18} />}
-    </button>
-  );
-}
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -119,7 +88,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <ThemeToggle />
             <button
               type="button"
               onClick={logout}
