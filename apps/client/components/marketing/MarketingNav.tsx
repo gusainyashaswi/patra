@@ -21,9 +21,6 @@ export function MarketingNav() {
           <Link href="/" className="font-yellix text-[26px] font-bold tracking-tight text-[#0755B5] select-none hover:opacity-90">
             <Logo size={26} />
           </Link>
-          <span className="hidden sm:inline-block font-pixel text-[11px] uppercase tracking-wider text-[rgba(7,85,181,0.65)] border border-[rgba(7,85,181,0.3)] px-2 py-0.5">
-            v0.1 · Self-Hosted
-          </span>
         </div>
 
         {/* Minimalist Desktop Navigation */}

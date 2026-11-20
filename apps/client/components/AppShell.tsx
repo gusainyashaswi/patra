@@ -67,7 +67,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-[72px] max-w-[1440px] items-center gap-6 px-5 sm:px-10 xl:gap-10">
           <Link href="/dashboard" aria-label="Patra home" className="flex items-center gap-3 shrink-0 cursor-pointer">
             <Logo size={28} />
-            <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 border border-line text-on-nav/70 hidden sm:inline-block">v0.1</span>
           </Link>
 
           <nav aria-label="Main" className="hidden items-center gap-6 lg:flex xl:gap-8">

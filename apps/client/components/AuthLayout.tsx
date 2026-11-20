@@ -12,9 +12,6 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <Link href="/" aria-label="Patra home" className="flex items-center gap-2.5 cursor-pointer select-none">
             <Logo size={32} />
           </Link>
-          <span className="font-mono text-[11px] uppercase tracking-widest px-2.5 py-1 border border-line text-subtle bg-surface">
-            v0.1
-          </span>
         </div>
 
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10 animate-fade-up">
