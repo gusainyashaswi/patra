@@ -735,7 +735,7 @@ function TemplateEditor({ source, isLocal, workspace }) {
                       className={cx(
                         "group relative -mx-3 rounded-md px-3 py-1.5",
                         !preview && "cursor-pointer outline outline-1 outline-transparent transition-[outline-color] duration-100 hover:outline-[#d6d3d1]",
-                        isSel && "outline-2 !outline-[#f05a35]",
+                        isSel && "outline-2 !outline-[#0755B5] ring-2 ring-[#0755B5]",
                       )}
                     >
                       <BlockView block={b} page={tpl.page} preview={preview} />

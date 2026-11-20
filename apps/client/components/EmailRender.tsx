@@ -13,7 +13,7 @@ export function MergeText({ text, preview }) {
     if (!m) return <span key={i}>{p}</span>;
     if (preview) return <span key={i}>{Object.hasOwn(sampleData, m[1]) ? sampleData[m[1]] : `[Sample ${m[1]}]`}</span>;
     return (
-      <span key={i} className="mx-px rounded bg-[#fff1e8] px-1 font-mono text-[0.85em] text-[#f05a35] ring-1 ring-[#fed7c3]">
+      <span key={i} className="mx-px rounded-none bg-[rgba(7,85,181,0.08)] px-1.5 py-0.5 font-mono text-[0.85em] text-[#0755B5] ring-1 ring-[rgba(7,85,181,0.25)]">
         {m[1]}
       </span>
     );

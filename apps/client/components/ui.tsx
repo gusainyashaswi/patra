@@ -62,7 +62,7 @@ export function Card({ tone = "plain", className, children, ...rest }: DynamicPr
   const tones = {
     plain: "border border-line bg-surface",
     ruled: "border-2 border-line-strong bg-surface",
-    ink: "bg-[#0e0e0e] text-[#f1eee5] [--fg-muted:#bdb8ac] [--fg-subtle:#8f8a7f] [--border:#2a2926]",
+    ink: "bg-[#0755B5] text-[#F4F2E8] [--fg-muted:rgba(244,242,232,0.8)] [--fg-subtle:rgba(244,242,232,0.6)] [--border:rgba(244,242,232,0.25)]",
     accent: "bg-accent text-on-accent",
   };
   return (
@@ -393,7 +393,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
-      <div className="absolute inset-0 bg-[#0e0e0e]/55 animate-fade-up" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-[#0755B5]/35 backdrop-blur-[1px] animate-fade-up" onClick={onClose} aria-hidden="true" />
       <div
         ref={ref}
         role="dialog"
@@ -437,8 +437,8 @@ export function Toast({ message, tone = "success", onDone }: DynamicProps) {
   return (
     <div aria-live="polite" className="pointer-events-none fixed bottom-8 left-1/2 z-[60] -translate-x-1/2">
       {message && (
-        <div className="pointer-events-auto flex items-center gap-3 bg-[#0e0e0e] px-5 py-4 text-[15px] text-[#f1eee5] shadow-[6px_6px_0_0_var(--accent)] animate-pop-in">
-          {tone === "success" ? <Icon.CheckCircle size={18} className="text-[#f05a35]" /> : <Icon.Info size={18} className="text-[#f05a35]" />}
+        <div className="pointer-events-auto flex items-center gap-3 border border-line-strong bg-surface px-5 py-4 text-[15px] text-fg shadow-[4px_4px_0_0_var(--accent)] animate-pop-in">
+          {tone === "success" ? <Icon.CheckCircle size={18} className="text-success" /> : <Icon.Info size={18} className="text-accent" />}
           {message}
         </div>
       )}
