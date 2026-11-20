@@ -4,15 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EmailPaper } from "@/components/EmailRender";
 import { Icon } from "@/components/icons";
-import { Button, Card, EmptyState, PageHeader, SearchInput, StatusBadge, fmt } from "@/components/ui";
-import TemplatePicker from "@/components/TemplatePicker";
+import { Card, EmptyState, PageHeader, SearchInput, StatusBadge, fmt } from "@/components/ui";
 import { readDrafts, subscribeDrafts } from "@/lib/template-drafts";
 import { templateRequest, useTemplateWorkspace } from "@/lib/template-api";
 import { templates } from "@/lib/mock";
 
 export default function TemplatesPage() {
   const [q, setQ] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [drafts, setDrafts] = useState([]);
   const { workspace, error: workspaceError } = useTemplateWorkspace();
   const [remote, setRemote] = useState(null);
@@ -39,14 +37,7 @@ export default function TemplatesPage() {
       <PageHeader
         title="Templates"
         description="Design once, publish a version, reuse it in any campaign. Editing never changes mail that's already queued."
-        actions={
-          <Button disabled={workspace === undefined} onClick={() => setPickerOpen(true)}>
-            <Icon.Plus size={15} /> New template
-          </Button>
-        }
       />
-
-      {pickerOpen && <TemplatePicker workspace={workspace} onClose={() => setPickerOpen(false)} />}
 
       {(workspaceError || loadError) && <p role="alert" className="mb-4 text-danger">{(workspaceError || loadError).message} <Link className="underline" href="/login">Sign in again</Link></p>}
       {(workspace === undefined && !workspaceError || workspace && !remote && !loadError) && <p role="status" className="mb-4 text-muted">Loading workspace templates…</p>}
