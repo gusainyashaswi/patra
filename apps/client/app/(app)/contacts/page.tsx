@@ -30,6 +30,17 @@ function AddContactDialog({ workspace, lists, onSaved }: AddContactDialogProps) 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !saving) {
+        setOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, saving]);
+
   function openDialog() {
     setName(""); setEmail(""); setCollege(""); setError("");
     setListId(lists[0]?.id ?? ""); setListName(""); setOpen(true);
